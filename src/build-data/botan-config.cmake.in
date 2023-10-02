@@ -1,0 +1,26 @@
+set(_Botan_mod_list "%{mod_list}")
+string(REGEX MATCHALL "[A-Za-z_0-9]+" _Botan_supported_components ${_Botan_mod_list})
+
+foreach(_comp ${Botan_FIND_COMPONENTS})
+  if (NOT _comp IN_LIST _Botan_supported_components)
+    set(Botan_FOUND False)
+    set(Botan_NOT_FOUND_MESSAGE "Unsupported module: ${_comp}")
+  endif()
+endforeach()
+
+if(NOT DEFINED Botan_FOUND)
+    set(Botan_FOUND True)
+endif()
+
+set(Botan_INCLUDE_DIRS %{prefix}/include/botan-%{version_major})
+set(Botan_LIBRARIES %{libdir}/%{shared_lib_name})
+
+if(NOT TARGET Botan::Botan)
+    add_library(Botan::Botan INTERFACE IMPORTED)
+    set_target_properties(Botan::Botan
+        PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${Botan_INCLUDE_DIRS}"
+            IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
+            INTERFACE_LINK_LIBRARIES "${Botan_LIBRARIES}"
+    )
+endif()
