@@ -12,15 +12,24 @@ if(NOT DEFINED Botan_FOUND)
     set(Botan_FOUND True)
 endif()
 
+%{if build_shared_lib}
+
 set(Botan_INCLUDE_DIRS %{prefix}/include/botan-%{version_major})
 set(Botan_LIBRARIES %{libdir}/%{shared_lib_name})
 
 if(NOT TARGET Botan::Botan)
-    add_library(Botan::Botan INTERFACE IMPORTED)
+    add_library(Botan::Botan SHARED IMPORTED)
     set_target_properties(Botan::Botan
         PROPERTIES
             INTERFACE_INCLUDE_DIRECTORIES "${Botan_INCLUDE_DIRS}"
             IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
-            INTERFACE_LINK_LIBRARIES "${Botan_LIBRARIES}"
+            #INTERFACE_LINK_LIBRARIES "Zlib::Zlib" # TODO: only external libs here
     )
+    set_property(TARGET Botan::Botan APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
+    set_target_properties(Botan::Botan PROPERTIES
+        IMPORTED_LOCATION_NOCONFIG "%{libdir}/%{shared_lib_name}"
+        IMPORTED_SONAME_NOCONFIG "%{shared_lib_name}"
+     )
 endif()
+
+%{endif}
