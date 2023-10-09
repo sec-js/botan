@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.20)
 
 project(Botan_CMake_Tests CXX)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED On)
+set(CMAKE_CXX_EXTENSIONS Off)
+
 # tell CMake where to find BotanConfig.cmake and BotanConfigVersion.cmake
 set(Botan_DIR ../../../build)
 
@@ -10,6 +14,9 @@ find_package(Botan)
 if(NOT Botan_FOUND)
   message(FATAL_ERROR "Test #1 failed: Failed to find Botan with any version")
 endif()
+
+add_executable(botan_version_test main.cpp)
+target_link_libraries(botan_version_test Botan::Botan)
 
 # clean up variables defined by BotanConfig.cmake
 unset(Botan_INCLUDE_DIRS)

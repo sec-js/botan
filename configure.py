@@ -226,7 +226,7 @@ class BuildPaths:
         def find_sources_in(basedir, srcdir):
             for (dirpath, _, filenames) in os.walk(os.path.join(basedir, srcdir)):
                 for filename in filenames:
-                    if filename.endswith('.cpp') and not filename.startswith('.'):
+                    if filename.endswith('.cpp') and not filename.startswith('.') and not dirpath.count('cmake'):
                         yield os.path.join(dirpath, filename)
 
         def find_headers_in(basedir, srcdir):
