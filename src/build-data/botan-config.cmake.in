@@ -8,11 +8,18 @@ foreach(_comp ${Botan_FIND_COMPONENTS})
   endif()
 endforeach()
 
+%{unless build_shared_lib}
+
+set(Botan_FOUND False)
+set(Botan_NOT_FOUND_MESSAGE "Static build currently not supported with CMake")
+
+%{endif}
+
+%{if build_shared_lib}
+
 if(NOT DEFINED Botan_FOUND)
     set(Botan_FOUND True)
 endif()
-
-%{if build_shared_lib}
 
 set(Botan_INCLUDE_DIRS %{prefix}/include/botan-%{version_major})
 set(Botan_LIBRARIES %{libdir}/%{shared_lib_name})
@@ -33,3 +40,4 @@ if(NOT TARGET Botan::Botan)
 endif()
 
 %{endif}
+
