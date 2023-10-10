@@ -30,7 +30,7 @@ if(NOT TARGET Botan::Botan)
         PROPERTIES
             INTERFACE_INCLUDE_DIRECTORIES "${Botan_INCLUDE_DIRS}"
             IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
-            #INTERFACE_LINK_LIBRARIES "Zlib::Zlib" # TODO: only external libs here
+            INTERFACE_LINK_OPTIONS "SHELL:%{cxx_abi_flags}"
     )
     set_property(TARGET Botan::Botan APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
     set_target_properties(Botan::Botan PROPERTIES
@@ -40,4 +40,3 @@ if(NOT TARGET Botan::Botan)
 endif()
 
 %{endif}
-
