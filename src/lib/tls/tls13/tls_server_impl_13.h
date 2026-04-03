@@ -58,11 +58,14 @@ class Server_Impl_13 : public Channel_Impl_13 {
       void downgrade();
 
    private:
-      Server_Handshake_State_13 m_handshake_state;
-      Handshake_Transitions m_transitions;
+      struct Pending_Handshake {
+            Server_Handshake_State_13 state;
+            Handshake_Transitions transitions;
+            std::optional<Session> resumed_session;
+            std::optional<std::string> psk_identity;
+      };
 
-      std::optional<Session> m_resumed_session;
-      std::optional<std::string> m_psk_identity;
+      std::unique_ptr<Pending_Handshake> m_handshake;
 };
 
 }  // namespace Botan::TLS

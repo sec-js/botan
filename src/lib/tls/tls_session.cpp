@@ -306,34 +306,6 @@ Session::Session(const secure_vector<uint8_t>& session_psk,
    BOTAN_ARG_CHECK(!version.is_pre_tls_13(), "Instantiated a TLS 1.3 session object with a TLS version older than 1.3");
 }
 
-Session::Session(secure_vector<uint8_t>&& session_psk,
-                 const std::optional<uint32_t>& max_early_data_bytes,
-                 std::chrono::seconds lifetime_hint,
-                 const std::vector<X509_Certificate>& peer_certs,
-                 std::shared_ptr<const Public_Key> peer_raw_public_key,
-                 const Client_Hello_13& client_hello,
-                 const Server_Hello_13& server_hello,
-                 Callbacks& callbacks,
-                 RandomNumberGenerator& rng) :
-      Session_Base(callbacks.tls_current_timestamp(),
-                   server_hello.selected_version(),
-                   server_hello.ciphersuite(),
-                   Connection_Side::Server,
-                   0,
-                   true,
-                   false,  // see constructor above for rationales
-                   peer_certs,
-                   std::move(peer_raw_public_key),
-                   Server_Information(client_hello.sni_hostname())),
-      m_master_secret(std::move(session_psk)),
-      m_early_data_allowed(max_early_data_bytes.has_value()),
-      m_max_early_data_bytes(max_early_data_bytes.value_or(0)),
-      m_ticket_age_add(load_be<uint32_t>(rng.random_vec(4).data(), 0)),
-      m_lifetime_hint(lifetime_hint) {
-   BOTAN_ARG_CHECK(!m_version.is_pre_tls_13(),
-                   "Instantiated a TLS 1.3 session object with a TLS version older than 1.3");
-}
-
 #endif
 
 Session::Session(std::string_view pem) : Session(PEM_Code::decode_check_label(pem, "TLS SESSION")) {}

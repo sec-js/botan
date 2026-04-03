@@ -12,6 +12,7 @@
 #include <botan/tls_alert.h>
 #include <botan/tls_session_manager.h>
 #include <botan/internal/tls_channel_impl.h>
+#include <botan/internal/tls_connection_state_12.h>
 #include <map>
 #include <memory>
 #include <string>
@@ -149,8 +150,9 @@ class Channel_Impl_12 : public Channel_Impl {
       bool timeout_check() override;
 
    protected:
-      virtual void process_handshake_msg(const Handshake_State* active_state,
-                                         Handshake_State& pending_state,
+      const std::optional<Active_Connection_State_12>& active_state() const { return m_active_state; }
+
+      virtual void process_handshake_msg(Handshake_State& pending_state,
                                          Handshake_Type type,
                                          const std::vector<uint8_t>& contents,
                                          bool epoch0_restart) = 0;
@@ -186,8 +188,6 @@ class Channel_Impl_12 : public Channel_Impl {
 
       virtual void initiate_handshake(Handshake_State& state, bool force_full_renegotiation) = 0;
 
-      virtual std::vector<X509_Certificate> get_peer_cert_chain(const Handshake_State& state) const = 0;
-
    private:
       void send_record(Record_Type record_type, const std::vector<uint8_t>& record);
 
@@ -205,8 +205,6 @@ class Channel_Impl_12 : public Channel_Impl {
       std::shared_ptr<Connection_Cipher_State> read_cipher_state_epoch(uint16_t epoch) const;
 
       std::shared_ptr<Connection_Cipher_State> write_cipher_state_epoch(uint16_t epoch) const;
-
-      const Handshake_State* active_state() const { return m_active_state.get(); }
 
       const Handshake_State* pending_state() const { return m_pending_state.get(); }
 
@@ -235,8 +233,7 @@ class Channel_Impl_12 : public Channel_Impl {
       /* sequence number state */
       std::unique_ptr<Connection_Sequence_Numbers> m_sequence_numbers;
 
-      /* pending and active connection states */
-      std::unique_ptr<Handshake_State> m_active_state;
+      /* pending handshake state (null when no handshake is in progress) */
       std::unique_ptr<Handshake_State> m_pending_state;
 
       /* cipher states for each epoch */
@@ -249,6 +246,8 @@ class Channel_Impl_12 : public Channel_Impl {
       secure_vector<uint8_t> m_record_buf;
 
       bool m_has_been_closed;
+
+      std::optional<Active_Connection_State_12> m_active_state;
 };
 
 }  // namespace TLS

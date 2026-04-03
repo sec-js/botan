@@ -417,6 +417,7 @@ void Channel_Impl_13::shutdown() {
    m_can_read = false;
    m_can_write = false;
    m_cipher_state.reset();
+   m_active_state.reset();
 }
 
 void Channel_Impl_13::expect_downgrade(const Server_Information& server_info,

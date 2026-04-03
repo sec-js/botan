@@ -44,6 +44,16 @@ class Server_Handshake_State final : public Handshake_State {
 
       bool is_a_resumption() const { return m_is_a_resumption; }
 
+      std::vector<X509_Certificate> peer_cert_chain() const override {
+         if(!m_resume_peer_certs.empty()) {
+            return m_resume_peer_certs;
+         }
+         if(client_certs() != nullptr) {
+            return client_certs()->cert_chain();
+         }
+         return {};
+      }
+
    private:
       // Used by the server only, in case of RSA key exchange.
       std::shared_ptr<Private_Key> m_server_rsa_kex_key;
@@ -272,18 +282,6 @@ std::unique_ptr<Handshake_State> Server_Impl_12::new_handshake_state(std::unique
    return state;
 }
 
-std::vector<X509_Certificate> Server_Impl_12::get_peer_cert_chain(const Handshake_State& state_base) const {
-   const Server_Handshake_State& state = dynamic_cast<const Server_Handshake_State&>(state_base);
-   if(!state.resume_peer_certs().empty()) {
-      return state.resume_peer_certs();
-   }
-
-   if(state.client_certs() != nullptr) {
-      return state.client_certs()->cert_chain();
-   }
-   return std::vector<X509_Certificate>();
-}
-
 /*
 * Send a hello request to the client
 */
@@ -351,13 +349,12 @@ Protocol_Version select_version(const TLS::Policy& policy,
 /*
 * Process a Client Hello Message
 */
-void Server_Impl_12::process_client_hello_msg(const Handshake_State* active_state,
-                                              Server_Handshake_State& pending_state,
+void Server_Impl_12::process_client_hello_msg(Server_Handshake_State& pending_state,
                                               const std::vector<uint8_t>& contents,
                                               bool epoch0_restart) {
-   BOTAN_ASSERT_IMPLICATION(epoch0_restart, active_state != nullptr, "Can't restart with a dead connection");
+   BOTAN_ASSERT_IMPLICATION(epoch0_restart, active_state().has_value(), "Can't restart with a dead connection");
 
-   const bool initial_handshake = epoch0_restart || active_state == nullptr;
+   const bool initial_handshake = epoch0_restart || !active_state().has_value();
 
    if(initial_handshake == false && policy().allow_client_initiated_renegotiation() == false) {
       if(policy().abort_connection_on_undesired_renegotiation()) {
@@ -407,7 +404,7 @@ void Server_Impl_12::process_client_hello_msg(const Handshake_State* active_stat
    const Protocol_Version negotiated_version =
       select_version(policy(),
                      client_offer,
-                     active_state != nullptr ? active_state->version() : Protocol_Version(),
+                     active_state().has_value() ? active_state()->version() : Protocol_Version(),
                      pending_state.client_hello()->supported_versions());
 
    pending_state.set_version(negotiated_version);
@@ -448,8 +445,6 @@ void Server_Impl_12::process_client_hello_msg(const Handshake_State* active_stat
    if(epoch0_restart) {
       // If we reached here then we were able to verify the cookie
       reset_active_association_state();
-      // This was pointing to m_active_state which was freed by reset_active_association_state
-      active_state = nullptr;
    }
 
    secure_renegotiation_check(pending_state.client_hello());
@@ -469,11 +464,12 @@ void Server_Impl_12::process_client_hello_msg(const Handshake_State* active_stat
    // There is apparently no RFC requirement that a client must not drop EMS between the
    // initial negotiation and a renegotiation... but there is also no RFC requirement
    // that we must accept it. So we don't.
-   if(active_state != nullptr && active_state->server_hello() != nullptr &&
-      active_state->server_hello()->supports_extended_master_secret() &&
-      !pending_state.client_hello()->supports_extended_master_secret()) {
-      throw TLS_Exception(Alert::HandshakeFailure,
-                          "Renegotiation ClientHello dropped the Extended Master Secret extension");
+   if(const auto& active = active_state()) {
+      const bool ems_pending = pending_state.client_hello()->supports_extended_master_secret();
+      if(active->supports_extended_master_secret() == true && ems_pending == false) {
+         throw TLS_Exception(Alert::HandshakeFailure,
+                             "Renegotiation ClientHello dropped the Extended Master Secret extension");
+      }
    }
 
    callbacks().tls_examine_extensions(
@@ -620,7 +616,7 @@ void Server_Impl_12::process_finished_msg(Server_Handshake_State& pending_state,
                            Connection_Side::Server,
                            pending_state.server_hello()->supports_extended_master_secret(),
                            pending_state.server_hello()->supports_encrypt_then_mac(),
-                           get_peer_cert_chain(pending_state),
+                           pending_state.peer_cert_chain(),
                            Server_Information(pending_state.client_hello()->sni_hostname()),
                            pending_state.server_hello()->srtp_profile(),
                            callbacks().tls_current_timestamp());
@@ -666,8 +662,7 @@ void Server_Impl_12::process_finished_msg(Server_Handshake_State& pending_state,
 /*
 * Process a handshake message
 */
-void Server_Impl_12::process_handshake_msg(const Handshake_State* active_state,
-                                           Handshake_State& state_base,
+void Server_Impl_12::process_handshake_msg(Handshake_State& state_base,
                                            Handshake_Type type,
                                            const std::vector<uint8_t>& contents,
                                            bool epoch0_restart) {
@@ -688,7 +683,7 @@ void Server_Impl_12::process_handshake_msg(const Handshake_State* active_state,
 
    switch(type) {
       case Handshake_Type::ClientHello:
-         return this->process_client_hello_msg(active_state, state, contents, epoch0_restart);
+         return this->process_client_hello_msg(state, contents, epoch0_restart);
 
       case Handshake_Type::Certificate:
          return this->process_certificate_msg(state, contents);

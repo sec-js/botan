@@ -13,6 +13,7 @@
 #include <botan/tls_messages_13.h>
 #include <botan/internal/stl_util.h>
 #include <botan/internal/tls_channel_impl.h>
+#include <botan/internal/tls_connection_state_13.h>
 #include <botan/internal/tls_handshake_layer_13.h>
 #include <botan/internal/tls_record_layer_13.h>
 #include <botan/internal/tls_transcript_hash_13.h>
@@ -285,9 +286,10 @@ class Channel_Impl_13 : public Channel_Impl,
       void shutdown();
 
    protected:
-      const Connection_Side m_side;                  // NOLINT(*non-private-member-variable*)
-      Transcript_Hash_State m_transcript_hash;       // NOLINT(*non-private-member-variable*)
-      std::unique_ptr<Cipher_State> m_cipher_state;  // NOLINT(*non-private-member-variable*)
+      const Connection_Side m_side;                              // NOLINT(*non-private-member-variable*)
+      Transcript_Hash_State m_transcript_hash;                   // NOLINT(*non-private-member-variable*)
+      std::unique_ptr<Cipher_State> m_cipher_state;              // NOLINT(*non-private-member-variable*)
+      std::optional<Active_Connection_State_13> m_active_state;  // NOLINT(*non-private-member-variable*)
 
       /**
        * Indicate that we have to expect a downgrade to TLS 1.2. In which case the current
