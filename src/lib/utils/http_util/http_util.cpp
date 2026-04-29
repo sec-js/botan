@@ -82,6 +82,14 @@ bool needs_url_encoding(char c) {
    return true;
 }
 
+void check_no_crlf_nul(std::string_view field, std::string_view value) {
+   for(const char c : value) {
+      if(c == '\r' || c == '\n' || c == '\0') {
+         throw HTTP_Error(fmt("Invalid character in HTTP {}", field));
+      }
+   }
+}
+
 }  // namespace
 
 std::string url_encode(std::string_view in) {
@@ -146,6 +154,12 @@ Response http_sync(const http_exch_fn& http_transact,
       service = hostname.substr(port_sep + 1, std::string::npos);
       hostname = hostname.substr(0, port_sep);
    }
+
+   check_no_crlf_nul("verb", verb);
+   check_no_crlf_nul("hostname", hostname);
+   check_no_crlf_nul("port", service);
+   check_no_crlf_nul("path", loc);
+   check_no_crlf_nul("content type", content_type);
 
    std::ostringstream outbuf;
 
