@@ -174,14 +174,16 @@ uint16_t choose_ciphersuite(const Policy& policy,
       }
 
       // For non-anon ciphersuites
-      if(suite->signature_used()) {
-         const std::string sig_algo = suite->sig_algo();
+      if(suite->is_certificate_required()) {
+         const std::string cert_algo = suite->signature_used() ? suite->sig_algo() : "RSA";
 
          // Do we have any certificates for this sig?
-         if(!cert_chains.contains(sig_algo)) {
+         if(!cert_chains.contains(cert_algo)) {
             continue;
          }
+      }
 
+      if(suite->signature_used()) {
          const std::vector<Signature_Scheme> allowed = policy.allowed_signature_schemes();
 
          const std::vector<Signature_Scheme> client_sig_methods = client_hello.signature_schemes();
@@ -831,7 +833,7 @@ void Server_Impl_12::session_create(Server_Handshake_State& pending_state) {
 
    std::shared_ptr<Private_Key> private_key;
 
-   if(pending_suite.signature_used() || pending_suite.kex_method() == Kex_Algo::STATIC_RSA) {
+   if(pending_suite.is_certificate_required()) {
       const std::string algo_used = pending_suite.signature_used() ? pending_suite.sig_algo() : "RSA";
 
       BOTAN_ASSERT(!cert_chains[algo_used].empty(), "Attempting to send empty certificate chain");
@@ -875,7 +877,12 @@ void Server_Impl_12::session_create(Server_Handshake_State& pending_state) {
 
    const bool request_cert = (client_auth_CAs.empty() == false) || policy().request_client_certificate_authentication();
 
-   if(request_cert && pending_state.ciphersuite().signature_used()) {
+   // RFC 5246 7.4.4: supported_signature_algorithms<2..2^16-2>
+   // Without at least one acceptable scheme we cannot construct a valid
+   // CertificateRequest, so client cert auth is unreachable regardless.
+   const bool can_request_cert = !policy().acceptable_signature_schemes().empty();
+
+   if(request_cert && can_request_cert && pending_state.ciphersuite().is_certificate_required()) {
       pending_state.cert_req(std::make_unique<Certificate_Request_12>(
          pending_state.handshake_io(), pending_state.hash(), policy(), client_auth_CAs));
 

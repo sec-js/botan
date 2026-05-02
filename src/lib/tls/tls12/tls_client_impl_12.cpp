@@ -480,7 +480,7 @@ void Client_Impl_12::process_handshake_msg(Handshake_State& state_base,
                                 "Server version " + state.version().to_string() + " is unacceptable by policy");
          }
 
-         if(state.ciphersuite().signature_used() || state.ciphersuite().kex_method() == Kex_Algo::STATIC_RSA) {
+         if(state.ciphersuite().is_certificate_required()) {
             state.set_expected_next(Handshake_Type::Certificate);
          } else if(state.ciphersuite().kex_method() == Kex_Algo::PSK) {
             /* PSK is anonymous so no certificate/cert req message is
