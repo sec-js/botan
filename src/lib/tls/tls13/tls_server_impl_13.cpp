@@ -108,6 +108,7 @@ bool Server_Impl_13::new_session_ticket_supported() const {
 
 size_t Server_Impl_13::send_new_session_tickets(const size_t tickets) {
    BOTAN_STATE_CHECK(is_handshake_complete());
+   BOTAN_STATE_CHECK(m_cipher_state != nullptr);
 
    if(tickets == 0) {
       return 0;
