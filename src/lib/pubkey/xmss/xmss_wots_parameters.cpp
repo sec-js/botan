@@ -57,56 +57,42 @@ XMSS_WOTS_Parameters::XMSS_WOTS_Parameters(ots_algorithm_t oid) : m_oid(oid) {
          m_element_size = 32;
          m_w = 16;
          m_len = 67;
-         m_name = "WOTSP-SHA2_256";
-         m_hash_name = "SHA-256";
          m_strength = 256;
          break;
       case WOTSP_SHA2_512:
          m_element_size = 64;
          m_w = 16;
          m_len = 131;
-         m_name = "WOTSP-SHA2_512";
-         m_hash_name = "SHA-512";
          m_strength = 512;
          break;
       case WOTSP_SHAKE_256:
          m_element_size = 32;
          m_w = 16;
          m_len = 67;
-         m_name = "WOTSP-SHAKE_256";
-         m_hash_name = "SHAKE-128(256)";
          m_strength = 256;
          break;
       case WOTSP_SHAKE_512:
          m_element_size = 64;
          m_w = 16;
          m_len = 131;
-         m_name = "WOTSP-SHAKE_512";
-         m_hash_name = "SHAKE-256(512)";
          m_strength = 512;
          break;
       case WOTSP_SHA2_192:
          m_element_size = 24;
          m_w = 16;
          m_len = 51;
-         m_name = "WOTSP-SHA2_192";
-         m_hash_name = "Truncated(SHA-256,192)";
          m_strength = 192;
          break;
       case WOTSP_SHAKE_256_256:
          m_element_size = 32;
          m_w = 16;
          m_len = 67;
-         m_name = "WOTSP-SHAKE_256_256";
-         m_hash_name = "SHAKE-256(256)";
          m_strength = 256;
          break;
       case WOTSP_SHAKE_256_192:
          m_element_size = 24;
          m_w = 16;
          m_len = 51;
-         m_name = "WOTSP-SHAKE_256_192";
-         m_hash_name = "SHAKE-256(192)";
          m_strength = 192;
          break;
       default:
@@ -114,11 +100,40 @@ XMSS_WOTS_Parameters::XMSS_WOTS_Parameters(ots_algorithm_t oid) : m_oid(oid) {
    }
 
    m_lg_w = (m_w == 16) ? 4 : 2;
+   // TODO: remove use of floating point from these computations
    m_len_1 = static_cast<size_t>(std::ceil((8 * element_size()) / m_lg_w));
    m_len_2 = static_cast<size_t>(floor(log2(m_len_1 * (wots_parameter() - 1)) / m_lg_w) + 1);
    BOTAN_ASSERT(m_len == m_len_1 + m_len_2,
                 "Invalid XMSS WOTS parameter "
                 "\"len\" detected.");
+}
+
+std::string_view XMSS_WOTS_Parameters::name() const {
+   switch(m_oid) {
+      case WOTSP_SHA2_256:
+         return "WOTSP-SHA2_256";
+
+      case WOTSP_SHA2_512:
+         return "WOTSP-SHA2_512";
+
+      case WOTSP_SHAKE_256:
+         return "WOTSP-SHAKE_256";
+
+      case WOTSP_SHAKE_512:
+         return "WOTSP-SHAKE_512";
+
+      case WOTSP_SHA2_192:
+         return "WOTSP-SHA2_192";
+
+      case WOTSP_SHAKE_256_256:
+         return "WOTSP-SHAKE_256_256";
+
+      case WOTSP_SHAKE_256_192:
+         return "WOTSP-SHAKE_256_192";
+
+      default:
+         BOTAN_ASSERT_UNREACHABLE();
+   }
 }
 
 secure_vector<uint8_t> XMSS_WOTS_Parameters::base_w(const secure_vector<uint8_t>& msg, size_t out_size) const {

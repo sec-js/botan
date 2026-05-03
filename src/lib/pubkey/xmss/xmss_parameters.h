@@ -8,13 +8,16 @@
 #ifndef BOTAN_XMSS_PARAMETERS_H_
 #define BOTAN_XMSS_PARAMETERS_H_
 
-#include <map>
-#include <string>
-
 #include <botan/secmem.h>
 #include <botan/types.h>
+#include <string_view>
 
 namespace Botan {
+
+/*
+* TODO(Botan4) this header is only needed by xmss.h due to xmss_algorithm_t
+* Split xmss_algorithm_t out somehow, and make this header internal
+*/
 
 /**
  * Describes a signature method for XMSS Winternitz One Time Signatures,
@@ -50,6 +53,12 @@ class BOTAN_PUBLIC_API(2, 0) XMSS_WOTS_Parameters final {
 
       BOTAN_FUTURE_EXPLICIT XMSS_WOTS_Parameters(ots_algorithm_t ots_spec);
 
+      XMSS_WOTS_Parameters(const XMSS_WOTS_Parameters& other) = default;
+      XMSS_WOTS_Parameters(XMSS_WOTS_Parameters&& other) noexcept = default;
+      XMSS_WOTS_Parameters& operator=(const XMSS_WOTS_Parameters& other) = default;
+      XMSS_WOTS_Parameters& operator=(XMSS_WOTS_Parameters&& other) noexcept = default;
+      ~XMSS_WOTS_Parameters() = default;
+
       static ots_algorithm_t xmss_wots_id_from_string(std::string_view param_set);
 
       /**
@@ -62,6 +71,7 @@ class BOTAN_PUBLIC_API(2, 0) XMSS_WOTS_Parameters final {
        **/
       secure_vector<uint8_t> base_w(const secure_vector<uint8_t>& msg, size_t out_size) const;
 
+      // TODO: make private
       secure_vector<uint8_t> base_w(size_t value) const;
 
       void append_checksum(secure_vector<uint8_t>& data) const;
@@ -69,7 +79,7 @@ class BOTAN_PUBLIC_API(2, 0) XMSS_WOTS_Parameters final {
       /**
        * @return XMSS WOTS registry name for the chosen parameter set.
        **/
-      const std::string& name() const { return m_name; }
+      std::string_view name() const;
 
       /**
        * Retrieves the uniform length of a message, and the size of
@@ -103,10 +113,7 @@ class BOTAN_PUBLIC_API(2, 0) XMSS_WOTS_Parameters final {
       bool operator==(const XMSS_WOTS_Parameters& p) const { return m_oid == p.m_oid; }
 
    private:
-      static const std::map<std::string, ots_algorithm_t> m_oid_name_lut;
-      ots_algorithm_t m_oid;
-      std::string m_name;
-      std::string m_hash_name;
+      ots_algorithm_t m_oid{};
       size_t m_element_size;
       size_t m_w;
       size_t m_len_1;
@@ -164,12 +171,18 @@ class BOTAN_PUBLIC_API(2, 0) XMSS_Parameters {
       explicit XMSS_Parameters(std::string_view algo_name);
       explicit XMSS_Parameters(xmss_algorithm_t oid);
 
+      XMSS_Parameters(const XMSS_Parameters& other) = default;
+      XMSS_Parameters(XMSS_Parameters&& other) noexcept = default;
+      XMSS_Parameters& operator=(const XMSS_Parameters& other) = default;
+      XMSS_Parameters& operator=(XMSS_Parameters&& other) noexcept = default;
+      ~XMSS_Parameters() = default;
+
       /**
        * @return XMSS registry name for the chosen parameter set.
        **/
-      const std::string& name() const { return m_name; }
+      std::string_view name() const;
 
-      const std::string& hash_function_name() const { return m_hash_name; }
+      std::string_view hash_function_name() const;
 
       /**
        * Retrieves the uniform length of a message, and the size of
@@ -233,10 +246,8 @@ class BOTAN_PUBLIC_API(2, 0) XMSS_Parameters {
       bool operator==(const XMSS_Parameters& p) const { return m_oid == p.m_oid; }
 
    private:
-      xmss_algorithm_t m_oid;
+      xmss_algorithm_t m_oid{};
       XMSS_WOTS_Parameters::ots_algorithm_t m_wots_oid;
-      std::string m_name;
-      std::string m_hash_name;
       size_t m_element_size;
       size_t m_hash_id_size;
       size_t m_tree_height;

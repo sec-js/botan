@@ -67,36 +67,92 @@ std::vector<uint8_t> extract_raw_public_key(std::span<const uint8_t> key_bits) {
 
 }  // namespace
 
-XMSS_PublicKey::XMSS_PublicKey(XMSS_Parameters::xmss_algorithm_t xmss_oid, RandomNumberGenerator& rng) :
-      m_xmss_params(xmss_oid),
-      m_wots_params(m_xmss_params.ots_oid()),
-      m_root(m_xmss_params.element_size()),
-      m_public_seed(rng.random_vec(m_xmss_params.element_size())) {}
+class XMSS_PublicKey_Internal {
+   public:
+      XMSS_PublicKey_Internal(XMSS_Parameters::xmss_algorithm_t xmss_oid,
+                              secure_vector<uint8_t> root,
+                              secure_vector<uint8_t> public_seed) :
+            m_xmss_params(xmss_oid),
+            m_wots_params(m_xmss_params.ots_oid()),
+            m_root(std::move(root)),
+            m_public_seed(std::move(public_seed)) {}
 
-XMSS_PublicKey::XMSS_PublicKey(std::span<const uint8_t> key_bits) :
-      m_raw_key(extract_raw_public_key(key_bits)),
-      m_xmss_params(deserialize_xmss_oid(m_raw_key)),
-      m_wots_params(m_xmss_params.ots_oid()) {
-   if(m_raw_key.size() < m_xmss_params.raw_public_key_size()) {
+      const XMSS_Parameters& xmss_parameters() const { return m_xmss_params; }
+
+      const XMSS_WOTS_Parameters& wots_parameters() const { return m_wots_params; }
+
+      const secure_vector<uint8_t>& root() const { return m_root; }
+
+      const secure_vector<uint8_t>& public_seed() const { return m_public_seed; }
+
+      void set_root(secure_vector<uint8_t> root) { m_root = std::move(root); }
+
+      std::vector<uint8_t> raw_public_key_bits() const {
+         return concat<std::vector<uint8_t>>(
+            store_be(static_cast<uint32_t>(m_xmss_params.oid())), m_root, m_public_seed);
+      }
+
+   private:
+      XMSS_Parameters m_xmss_params;
+      XMSS_WOTS_Parameters m_wots_params;
+      secure_vector<uint8_t> m_root;
+      secure_vector<uint8_t> m_public_seed;
+};
+
+XMSS_PublicKey::XMSS_PublicKey(XMSS_Parameters::xmss_algorithm_t xmss_oid, RandomNumberGenerator& rng) {
+   const XMSS_Parameters params(xmss_oid);
+   m_public_key = std::make_shared<XMSS_PublicKey_Internal>(
+      xmss_oid, secure_vector<uint8_t>(params.element_size()), rng.random_vec(params.element_size()));
+}
+
+XMSS_PublicKey::XMSS_PublicKey(std::span<const uint8_t> key_bits) {
+   const auto raw_key = extract_raw_public_key(key_bits);
+   const auto xmss_oid = deserialize_xmss_oid(raw_key);
+   const XMSS_Parameters params(xmss_oid);
+   if(raw_key.size() < params.raw_public_key_size()) {
       throw Decoding_Error("Invalid XMSS public key size detected");
    }
 
-   BufferSlicer s(m_raw_key);
+   BufferSlicer s(raw_key);
    s.skip(4 /* algorithm ID -- already consumed by `deserialize_xmss_oid()` */);
 
-   m_root = s.copy_as_secure_vector(m_xmss_params.element_size());
-   m_public_seed = s.copy_as_secure_vector(m_xmss_params.element_size());
+   auto root = s.copy_as_secure_vector(params.element_size());
+   auto public_seed = s.copy_as_secure_vector(params.element_size());
+
+   m_public_key = std::make_shared<XMSS_PublicKey_Internal>(xmss_oid, std::move(root), std::move(public_seed));
 }
 
 XMSS_PublicKey::XMSS_PublicKey(XMSS_Parameters::xmss_algorithm_t xmss_oid,
                                secure_vector<uint8_t> root,
-                               secure_vector<uint8_t> public_seed) :
-      m_xmss_params(xmss_oid),
-      m_wots_params(m_xmss_params.ots_oid()),
-      m_root(std::move(root)),
-      m_public_seed(std::move(public_seed)) {
-   BOTAN_ARG_CHECK(m_root.size() == m_xmss_params.element_size(), "XMSS: unexpected byte length of root hash");
-   BOTAN_ARG_CHECK(m_public_seed.size() == m_xmss_params.element_size(), "XMSS: unexpected byte length of public seed");
+                               secure_vector<uint8_t> public_seed) {
+   const XMSS_Parameters params(xmss_oid);
+   BOTAN_ARG_CHECK(root.size() == params.element_size(), "XMSS: unexpected byte length of root hash");
+   BOTAN_ARG_CHECK(public_seed.size() == params.element_size(), "XMSS: unexpected byte length of public seed");
+   m_public_key = std::make_shared<XMSS_PublicKey_Internal>(xmss_oid, std::move(root), std::move(public_seed));
+}
+
+const secure_vector<uint8_t>& XMSS_PublicKey::public_seed() const {
+   return m_public_key->public_seed();
+}
+
+const secure_vector<uint8_t>& XMSS_PublicKey::root() const {
+   return m_public_key->root();
+}
+
+const XMSS_Parameters& XMSS_PublicKey::xmss_parameters() const {
+   return m_public_key->xmss_parameters();
+}
+
+void XMSS_PublicKey::set_root(secure_vector<uint8_t> root) {
+   m_public_key->set_root(std::move(root));
+}
+
+size_t XMSS_PublicKey::estimated_strength() const {
+   return xmss_parameters().estimated_strength();
+}
+
+size_t XMSS_PublicKey::key_length() const {
+   return xmss_parameters().estimated_strength();
 }
 
 bool XMSS_PublicKey::check_key(RandomNumberGenerator& /*rng*/, bool /*strong*/) const {
@@ -127,7 +183,7 @@ std::unique_ptr<PK_Ops::Verification> XMSS_PublicKey::create_x509_verification_o
 }
 
 std::vector<uint8_t> XMSS_PublicKey::raw_public_key_bits() const {
-   return concat<std::vector<uint8_t>>(store_be(static_cast<uint32_t>(m_xmss_params.oid())), m_root, m_public_seed);
+   return m_public_key->raw_public_key_bits();
 }
 
 std::vector<uint8_t> XMSS_PublicKey::public_key_bits() const {
@@ -144,7 +200,7 @@ std::unique_ptr<Private_Key> XMSS_PublicKey::generate_another(RandomNumberGenera
    // Note: Given only an XMSS public key we cannot know which WOTS key
    //       derivation method was used to build the XMSS tree. Hence, we have to
    //       use the default here.
-   return std::make_unique<XMSS_PrivateKey>(m_xmss_params.oid(), rng);
+   return std::make_unique<XMSS_PrivateKey>(xmss_parameters().oid(), rng);
 }
 
 }  // namespace Botan

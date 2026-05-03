@@ -83,7 +83,7 @@ XMSS_WOTS_PublicKey::XMSS_WOTS_PublicKey(XMSS_WOTS_Parameters params,
                                          const XMSS_WOTS_PrivateKey& private_key,
                                          XMSS_Address adrs,
                                          XMSS_Hash& hash) :
-      XMSS_WOTS_Base(std::move(params), private_key.key_data()) {
+      XMSS_WOTS_Base(params, private_key.key_data()) {
    for(size_t i = 0; i < m_params.len(); ++i) {
       adrs.set_chain_address(static_cast<uint32_t>(i));
       chain(m_params, m_key_data[i], 0, m_params.wots_parameter() - 1, adrs, public_seed, hash);
@@ -96,7 +96,7 @@ XMSS_WOTS_PublicKey::XMSS_WOTS_PublicKey(XMSS_WOTS_Parameters params,
                                          const secure_vector<uint8_t>& msg,
                                          XMSS_Address adrs,
                                          XMSS_Hash& hash) :
-      XMSS_WOTS_Base(std::move(params), std::move(signature)) {
+      XMSS_WOTS_Base(params, std::move(signature)) {
    secure_vector<uint8_t> msg_digest{m_params.base_w(msg, m_params.len_1())};
 
    m_params.append_checksum(msg_digest);
@@ -135,7 +135,7 @@ XMSS_WOTS_PrivateKey::XMSS_WOTS_PrivateKey(XMSS_WOTS_Parameters params,
                                            std::span<const uint8_t> private_seed,
                                            XMSS_Address adrs,
                                            XMSS_Hash& hash) :
-      XMSS_WOTS_Base(std::move(params)) {
+      XMSS_WOTS_Base(params) {
    m_key_data.resize(m_params.len());
    for(size_t i = 0; i < m_params.len(); ++i) {
       adrs.set_chain_address(static_cast<uint32_t>(i));
@@ -149,7 +149,7 @@ XMSS_WOTS_PrivateKey::XMSS_WOTS_PrivateKey(XMSS_WOTS_Parameters params,
                                            std::span<const uint8_t> private_seed,
                                            XMSS_Address adrs,
                                            XMSS_Hash& hash) :
-      XMSS_WOTS_Base(std::move(params)) {
+      XMSS_WOTS_Base(params) {
    m_key_data.resize(m_params.len());
 
    secure_vector<uint8_t> r;
