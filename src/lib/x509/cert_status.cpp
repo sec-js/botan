@@ -110,7 +110,7 @@ const char* to_string(Certificate_Status_Code code) {
       case Certificate_Status_Code::OCSP_RESPONSE_MISSING_KEYUSAGE:
          return "OCSP issuer's keyusage prohibits OCSP";
       case Certificate_Status_Code::OCSP_RESPONSE_INVALID:
-         return "OCSP parsing valid";
+         return "OCSP response was unparsable or had invalid encoding";
       case Certificate_Status_Code::OCSP_NO_HTTP:
          return "OCSP requests not available, no HTTP support compiled in";
       case Certificate_Status_Code::CERT_IS_REVOKED:

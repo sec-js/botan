@@ -466,17 +466,22 @@ Certificate_Status_Code Response::status_for(const X509_Certificate& issuer,
             return Certificate_Status_Code::CERT_IS_REVOKED;
          }
 
-         if(response.this_update() > x509_ref_time) {
-            return Certificate_Status_Code::OCSP_NOT_YET_VALID;
-         }
-
-         if(response.next_update().time_is_set()) {
-            if(x509_ref_time > response.next_update()) {
-               return Certificate_Status_Code::OCSP_HAS_EXPIRED;
+         try {
+            if(response.this_update() > x509_ref_time) {
+               return Certificate_Status_Code::OCSP_NOT_YET_VALID;
             }
-         } else if(max_age > std::chrono::seconds::zero() &&
-                   ref_time - response.this_update().to_std_timepoint() > max_age) {
-            return Certificate_Status_Code::OCSP_IS_TOO_OLD;
+
+            if(response.next_update().time_is_set()) {
+               if(x509_ref_time > response.next_update()) {
+                  return Certificate_Status_Code::OCSP_HAS_EXPIRED;
+               }
+            } else if(max_age > std::chrono::seconds::zero() &&
+                      ref_time - response.this_update().to_std_timepoint() > max_age) {
+               return Certificate_Status_Code::OCSP_IS_TOO_OLD;
+            }
+         } catch(Exception&) {
+            // This can occur if eg the OCSP time is not representable by the system clock
+            return Certificate_Status_Code::OCSP_RESPONSE_INVALID;
          }
 
          if(response.cert_status() == 0) {
