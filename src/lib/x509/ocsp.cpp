@@ -30,8 +30,8 @@ CertID::CertID(const X509_Certificate& issuer, const BigInt& subject_serial) : m
    auto hash = HashFunction::create_or_throw("SHA-1");
 
    m_hash_id = AlgorithmIdentifier(hash->name(), AlgorithmIdentifier::USE_NULL_PARAM);
-   m_issuer_key_hash = unlock(hash->process(issuer.subject_public_key_bitstring()));
-   m_issuer_dn_hash = unlock(hash->process(issuer.raw_subject_dn()));
+   m_issuer_key_hash = hash->process<std::vector<uint8_t>>(issuer.subject_public_key_bitstring());
+   m_issuer_dn_hash = hash->process<std::vector<uint8_t>>(issuer.raw_subject_dn());
 }
 
 bool CertID::is_id_for(const X509_Certificate& issuer, const X509_Certificate& subject) const {
@@ -48,11 +48,17 @@ bool CertID::is_id_for(const X509_Certificate& issuer, const X509_Certificate& s
 
       auto hash = HashFunction::create_or_throw(hash_algo);
 
-      if(m_issuer_dn_hash != unlock(hash->process(subject.raw_issuer_dn()))) {
+      /*
+      RFC 6960 4.1.1
+         issuerNameHash is the hash of the issuer's distinguished name (DN).
+         The hash shall be calculated over the DER encoding of the issuer's name
+         field in the certificate being checked.
+      */
+      if(m_issuer_dn_hash != hash->process<std::vector<uint8_t>>(subject.raw_issuer_dn())) {
          return false;
       }
 
-      if(m_issuer_key_hash != unlock(hash->process(issuer.subject_public_key_bitstring()))) {
+      if(m_issuer_key_hash != hash->process<std::vector<uint8_t>>(issuer.subject_public_key_bitstring())) {
          return false;
       }
    } catch(...) {
