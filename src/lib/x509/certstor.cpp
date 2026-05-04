@@ -14,6 +14,8 @@
 #include <botan/pkix_types.h>
 #include <botan/internal/filesystem.h>
 #include <algorithm>
+#include <map>
+#include <set>
 
 namespace Botan {
 
@@ -49,20 +51,52 @@ std::optional<X509_CRL> Certificate_Store::find_crl_for(const X509_Certificate& 
    return std::nullopt;
 }
 
+class Certificate_Store_In_Memory::Impl final {
+   public:
+      std::vector<X509_Certificate> m_certs;
+      std::set<X509_Certificate::Tag> m_cert_tags;
+      std::map<X509_DN, std::vector<size_t>> m_dn_to_indices;
+      std::vector<X509_CRL> m_crls;
+};
+
+Certificate_Store_In_Memory::Certificate_Store_In_Memory() : m_impl(std::make_unique<Impl>()) {}
+
+Certificate_Store_In_Memory::Certificate_Store_In_Memory(const Certificate_Store_In_Memory& other) :
+      m_impl(std::make_unique<Impl>(other.impl())) {}
+
+Certificate_Store_In_Memory::Certificate_Store_In_Memory(Certificate_Store_In_Memory&& other) noexcept = default;
+
+Certificate_Store_In_Memory& Certificate_Store_In_Memory::operator=(Certificate_Store_In_Memory&& other) noexcept =
+   default;
+
+Certificate_Store_In_Memory::~Certificate_Store_In_Memory() = default;
+
+Certificate_Store_In_Memory::Impl& Certificate_Store_In_Memory::impl() {
+   BOTAN_STATE_CHECK(m_impl != nullptr);
+   return *m_impl;
+}
+
+const Certificate_Store_In_Memory::Impl& Certificate_Store_In_Memory::impl() const {
+   BOTAN_STATE_CHECK(m_impl != nullptr);
+   return *m_impl;
+}
+
 void Certificate_Store_In_Memory::add_certificate(const X509_Certificate& cert) {
+   auto& store = impl();
    const auto tag = cert.tag();
-   if(!m_cert_tags.contains(tag)) {
-      m_cert_tags.insert(tag);
-      const size_t idx = m_certs.size();
-      m_certs.push_back(cert);
-      m_dn_to_indices[cert.subject_dn()].push_back(idx);
+   if(!store.m_cert_tags.contains(tag)) {
+      store.m_cert_tags.insert(tag);
+      const size_t idx = store.m_certs.size();
+      store.m_certs.push_back(cert);
+      store.m_dn_to_indices[cert.subject_dn()].push_back(idx);
    }
 }
 
 std::vector<X509_DN> Certificate_Store_In_Memory::all_subjects() const {
+   const auto& store = impl();
    std::vector<X509_DN> subjects;
-   subjects.reserve(m_certs.size());
-   for(const auto& cert : m_certs) {
+   subjects.reserve(store.m_certs.size());
+   for(const auto& cert : store.m_certs) {
       subjects.push_back(cert.subject_dn());
    }
    return subjects;
@@ -70,13 +104,14 @@ std::vector<X509_DN> Certificate_Store_In_Memory::all_subjects() const {
 
 std::optional<X509_Certificate> Certificate_Store_In_Memory::find_cert(const X509_DN& subject_dn,
                                                                        const std::vector<uint8_t>& key_id) const {
-   const auto it = m_dn_to_indices.find(subject_dn);
-   if(it == m_dn_to_indices.end()) {
+   const auto& store = impl();
+   const auto it = store.m_dn_to_indices.find(subject_dn);
+   if(it == store.m_dn_to_indices.end()) {
       return std::nullopt;
    }
 
    for(const size_t idx : it->second) {
-      const auto& cert = m_certs[idx];
+      const auto& cert = store.m_certs[idx];
       BOTAN_ASSERT_NOMSG(cert.subject_dn() == subject_dn);
 
       if(!key_id.empty()) {
@@ -94,15 +129,16 @@ std::optional<X509_Certificate> Certificate_Store_In_Memory::find_cert(const X50
 
 std::vector<X509_Certificate> Certificate_Store_In_Memory::find_all_certs(const X509_DN& subject_dn,
                                                                           const std::vector<uint8_t>& key_id) const {
+   const auto& store = impl();
    std::vector<X509_Certificate> matches;
 
-   const auto it = m_dn_to_indices.find(subject_dn);
-   if(it == m_dn_to_indices.end()) {
+   const auto it = store.m_dn_to_indices.find(subject_dn);
+   if(it == store.m_dn_to_indices.end()) {
       return matches;
    }
 
    for(const size_t idx : it->second) {
-      const auto& cert = m_certs[idx];
+      const auto& cert = store.m_certs[idx];
       BOTAN_ASSERT_NOMSG(cert.subject_dn() == subject_dn);
 
       if(!key_id.empty()) {
@@ -124,7 +160,7 @@ std::optional<X509_Certificate> Certificate_Store_In_Memory::find_cert_by_pubkey
       throw Invalid_Argument("Certificate_Store_In_Memory::find_cert_by_pubkey_sha1 invalid hash");
    }
 
-   for(const auto& cert : m_certs) {
+   for(const auto& cert : impl().m_certs) {
       if(key_hash == cert.subject_public_key_bitstring_sha1()) {
          return cert;
       }
@@ -139,7 +175,7 @@ std::optional<X509_Certificate> Certificate_Store_In_Memory::find_cert_by_raw_su
       throw Invalid_Argument("Certificate_Store_In_Memory::find_cert_by_raw_subject_dn_sha256 invalid hash");
    }
 
-   for(const auto& cert : m_certs) {
+   for(const auto& cert : impl().m_certs) {
       if(subject_hash == cert.raw_subject_dn_sha256()) {
          return cert;
       }
@@ -150,7 +186,7 @@ std::optional<X509_Certificate> Certificate_Store_In_Memory::find_cert_by_raw_su
 
 std::optional<X509_Certificate> Certificate_Store_In_Memory::find_cert_by_issuer_dn_and_serial_number(
    const X509_DN& issuer_dn, std::span<const uint8_t> serial_number) const {
-   for(const auto& cert : m_certs) {
+   for(const auto& cert : impl().m_certs) {
       if(cert.issuer_dn() == issuer_dn && std::ranges::equal(cert.serial_number(), serial_number)) {
          return cert;
       }
@@ -160,9 +196,10 @@ std::optional<X509_Certificate> Certificate_Store_In_Memory::find_cert_by_issuer
 }
 
 void Certificate_Store_In_Memory::add_crl(const X509_CRL& crl) {
+   auto& store = impl();
    const X509_DN& crl_issuer = crl.issuer_dn();
 
-   for(auto& c : m_crls) {
+   for(auto& c : store.m_crls) {
       // Found an update of a previously existing one; replace it
       if(c.issuer_dn() == crl_issuer) {
          if(c.this_update() <= crl.this_update()) {
@@ -173,13 +210,14 @@ void Certificate_Store_In_Memory::add_crl(const X509_CRL& crl) {
    }
 
    // Totally new CRL, add to the list
-   m_crls.push_back(crl);
+   store.m_crls.push_back(crl);
 }
 
 std::optional<X509_CRL> Certificate_Store_In_Memory::find_crl_for(const X509_Certificate& subject) const {
+   const auto& store = impl();
    const std::vector<uint8_t>& key_id = subject.authority_key_id();
 
-   for(const auto& c : m_crls) {
+   for(const auto& c : store.m_crls) {
       // Only compare key ids if set in both call and in the CRL
       if(!key_id.empty()) {
          const std::vector<uint8_t>& akid = c.authority_key_id();
@@ -198,20 +236,21 @@ std::optional<X509_CRL> Certificate_Store_In_Memory::find_crl_for(const X509_Cer
 }
 
 bool Certificate_Store_In_Memory::contains(const X509_Certificate& cert) const {
-   return m_cert_tags.contains(cert.tag());
+   return impl().m_cert_tags.contains(cert.tag());
 }
 
-Certificate_Store_In_Memory::Certificate_Store_In_Memory(const X509_Certificate& cert) {
+Certificate_Store_In_Memory::Certificate_Store_In_Memory(const X509_Certificate& cert) : Certificate_Store_In_Memory() {
    add_certificate(cert);
 }
 
-Certificate_Store_In_Memory::Certificate_Store_In_Memory(const X509_Certificate& cert, const X509_CRL& crl) {
+Certificate_Store_In_Memory::Certificate_Store_In_Memory(const X509_Certificate& cert, const X509_CRL& crl) :
+      Certificate_Store_In_Memory() {
    add_certificate(cert);
    add_crl(crl);
 }
 
 #if defined(BOTAN_TARGET_OS_HAS_FILESYSTEM)
-Certificate_Store_In_Memory::Certificate_Store_In_Memory(std::string_view dir) {
+Certificate_Store_In_Memory::Certificate_Store_In_Memory(std::string_view dir) : Certificate_Store_In_Memory() {
    if(dir.empty()) {
       return;
    }

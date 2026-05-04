@@ -11,9 +11,9 @@
 #include <botan/pkix_types.h>
 #include <botan/x509_crl.h>
 #include <botan/x509cert.h>
-#include <map>
+#include <memory>
 #include <optional>
-#include <set>
+#include <vector>
 
 namespace Botan {
 
@@ -119,7 +119,15 @@ class BOTAN_PUBLIC_API(2, 0) Certificate_Store_In_Memory final : public Certific
       /**
       * Create an empty store.
       */
-      Certificate_Store_In_Memory() = default;
+      Certificate_Store_In_Memory();
+
+      Certificate_Store_In_Memory(const Certificate_Store_In_Memory& other);
+      Certificate_Store_In_Memory(Certificate_Store_In_Memory&& other) noexcept;
+
+      Certificate_Store_In_Memory& operator=(const Certificate_Store_In_Memory& other) = delete;
+      Certificate_Store_In_Memory& operator=(Certificate_Store_In_Memory&& other) noexcept;
+
+      ~Certificate_Store_In_Memory() override;
 
       /**
       * Add a certificate to the store.
@@ -168,10 +176,12 @@ class BOTAN_PUBLIC_API(2, 0) Certificate_Store_In_Memory final : public Certific
       bool contains(const X509_Certificate& cert) const override;
 
    private:
-      std::vector<X509_Certificate> m_certs;
-      std::set<X509_Certificate::Tag> m_cert_tags;
-      std::map<X509_DN, std::vector<size_t>> m_dn_to_indices;
-      std::vector<X509_CRL> m_crls;
+      class Impl;
+
+      Impl& impl();
+      const Impl& impl() const;
+
+      std::unique_ptr<Impl> m_impl;
 };
 
 }  // namespace Botan
