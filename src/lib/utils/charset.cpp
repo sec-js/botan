@@ -103,6 +103,19 @@ uint32_t next_utf8_codepoint(const std::string& utf8, size_t& pos) {
 
 }  // namespace
 
+bool is_valid_utf8(const std::string& utf8) {
+   try {
+      size_t pos = 0;
+      while(pos < utf8.size()) {
+         const uint32_t c = next_utf8_codepoint(utf8, pos);
+         BOTAN_UNUSED(c);
+      }
+   } catch(Decoding_Error&) {
+      return false;
+   }
+   return true;
+}
+
 std::string ucs2_to_utf8(const uint8_t ucs2[], size_t len) {
    if(len % 2 != 0) {
       throw Decoding_Error("Invalid length for UCS-2 string");

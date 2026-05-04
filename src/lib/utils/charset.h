@@ -10,9 +10,12 @@
 
 #include <botan/types.h>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace Botan {
+
+// TODO convert these to take arguments as spans or std::string_view
 
 /**
 * Convert a sequence of UCS-2 (big endian) characters to a UTF-8 string
@@ -52,6 +55,11 @@ BOTAN_TEST_API std::string ucs4_to_utf8(const uint8_t ucs4[], size_t len);
 BOTAN_TEST_API std::vector<uint8_t> utf8_to_ucs4(const std::string& utf8);
 
 BOTAN_TEST_API std::string latin1_to_utf8(const uint8_t latin1[], size_t len);
+
+/**
+* Return true if this string seems to contain a valid sequence of UTF-8
+*/
+bool is_valid_utf8(const std::string& str);
 
 /**
 * Return a string containing 'c', quoted and possibly escaped

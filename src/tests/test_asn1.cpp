@@ -416,6 +416,86 @@ class ASN1_Time_Parsing_Tests final : public Text_Based_Test {
 
 BOTAN_REGISTER_TEST("asn1", "asn1_time", ASN1_Time_Parsing_Tests);
 
+class ASN1_String_Validation_Tests final : public Text_Based_Test {
+   public:
+      ASN1_String_Validation_Tests() :
+            Text_Based_Test("asn1_string_validation.vec",
+                            "Input,ValidNumeric,ValidPrintable,ValidIa5,ValidVisible,ValidUtf8") {}
+
+      Test::Result run_one_test(const std::string& /*header*/, const VarMap& vars) override {
+         Test::Result result("ASN.1 string validation");
+
+         const auto input = vars.get_req_str("Input");
+         const bool valid_numeric = vars.get_req_bool("ValidNumeric");
+         const bool valid_printable = vars.get_req_bool("ValidPrintable");
+         const bool valid_ia5 = vars.get_req_bool("ValidIa5");
+         const bool valid_visible = vars.get_req_bool("ValidVisible");
+         const bool valid_utf8 = vars.get_req_bool("ValidUtf8");
+
+         test_string_type(result, input, "NumericString", Botan::ASN1_Type::NumericString, valid_numeric);
+         test_string_type(result, input, "PrintableString", Botan::ASN1_Type::PrintableString, valid_printable);
+         test_string_type(result, input, "Ia5String", Botan::ASN1_Type::Ia5String, valid_ia5);
+         test_string_type(result, input, "VisibleString", Botan::ASN1_Type::VisibleString, valid_visible);
+         test_string_type(result, input, "Utf8String", Botan::ASN1_Type::Utf8String, valid_utf8);
+
+         if(valid_utf8) {
+            try {
+               const Botan::ASN1_String str(input);
+               const auto expected_tag =
+                  valid_printable ? Botan::ASN1_Type::PrintableString : Botan::ASN1_Type::Utf8String;
+               result.test_u32_eq("String tagging categorization",
+                                  static_cast<uint32_t>(str.tagging()),
+                                  static_cast<uint32_t>(expected_tag));
+            } catch(const std::exception& ex) {
+               result.test_failure(Botan::fmt("default constructor unexpectedly rejected '{}': {}", input, ex.what()));
+            }
+         }
+
+         return result;
+      }
+
+   private:
+      void test_string_type(Test::Result& result,
+                            std::string_view input,
+                            std::string_view type,
+                            Botan::ASN1_Type tag,
+                            bool expected_valid) {
+         if(expected_valid) {
+            try {
+               const Botan::ASN1_String str(input, tag);
+               result.test_str_eq(Botan::fmt("{} constructor value", type), str.value(), input);
+
+               const auto enc = raw_encode_string(input, tag);
+               Botan::BER_Decoder dec(enc);
+               Botan::ASN1_String decoded;
+               decoded.decode_from(dec);
+               result.test_str_eq(Botan::fmt("{} decode value", type), decoded.value(), input);
+            } catch(const std::exception& e) {
+               result.test_failure(Botan::fmt("{} unexpectedly rejected '{}': {}", type, input, e.what()));
+            }
+         } else {
+            result.test_throws(Botan::fmt("{} constructor rejects", type),
+                               [&]() { const Botan::ASN1_String str(input, tag); });
+
+            result.test_throws(Botan::fmt("{} decode rejects", type), [&]() {
+               const auto enc = raw_encode_string(input, tag);
+               Botan::BER_Decoder dec(enc);
+               Botan::ASN1_String decoded;
+               decoded.decode_from(dec);
+            });
+         }
+      }
+
+      static std::vector<uint8_t> raw_encode_string(std::string_view input, Botan::ASN1_Type tag) {
+         std::vector<uint8_t> encoding;
+         Botan::DER_Encoder der(encoding);
+         der.add_object(tag, Botan::ASN1_Class::Universal, input);
+         return encoding;
+      }
+};
+
+BOTAN_REGISTER_TEST("asn1", "asn1_string_validation", ASN1_String_Validation_Tests);
+
 class ASN1_Printer_Tests final : public Test {
    public:
       std::vector<Test::Result> run() override {
