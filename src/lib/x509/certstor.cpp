@@ -57,6 +57,7 @@ class Certificate_Store_In_Memory::Impl final {
       std::set<X509_Certificate::Tag> m_cert_tags;
       std::map<X509_DN, std::vector<size_t>> m_dn_to_indices;
       std::vector<X509_CRL> m_crls;
+      std::map<X509_DN, size_t> m_issuer_dn_to_crl_idx;
 };
 
 Certificate_Store_In_Memory::Certificate_Store_In_Memory() : m_impl(std::make_unique<Impl>()) {}
@@ -199,17 +200,19 @@ void Certificate_Store_In_Memory::add_crl(const X509_CRL& crl) {
    auto& store = impl();
    const X509_DN& crl_issuer = crl.issuer_dn();
 
-   for(auto& c : store.m_crls) {
+   if(const auto it = store.m_issuer_dn_to_crl_idx.find(crl_issuer); it != store.m_issuer_dn_to_crl_idx.end()) {
+      auto& current_crl = store.m_crls.at(it->second);
+
       // Found an update of a previously existing one; replace it
-      if(c.issuer_dn() == crl_issuer) {
-         if(c.this_update() <= crl.this_update()) {
-            c = crl;
-         }
-         return;
+      if(current_crl.this_update() <= crl.this_update()) {
+         current_crl = crl;
       }
+
+      return;
    }
 
    // Totally new CRL, add to the list
+   store.m_issuer_dn_to_crl_idx.emplace(crl_issuer, store.m_crls.size());
    store.m_crls.push_back(crl);
 }
 
@@ -217,22 +220,23 @@ std::optional<X509_CRL> Certificate_Store_In_Memory::find_crl_for(const X509_Cer
    const auto& store = impl();
    const std::vector<uint8_t>& key_id = subject.authority_key_id();
 
-   for(const auto& c : store.m_crls) {
-      // Only compare key ids if set in both call and in the CRL
-      if(!key_id.empty()) {
-         const std::vector<uint8_t>& akid = c.authority_key_id();
+   const auto it = store.m_issuer_dn_to_crl_idx.find(subject.issuer_dn());
+   if(it == store.m_issuer_dn_to_crl_idx.end()) {
+      return std::nullopt;
+   }
 
-         if(!akid.empty() && akid != key_id) {  // no match
-            continue;
-         }
-      }
+   const auto& crl = store.m_crls.at(it->second);
 
-      if(c.issuer_dn() == subject.issuer_dn()) {
-         return c;
+   // Only compare key ids if set in both call and in the CRL
+   if(!key_id.empty()) {
+      const std::vector<uint8_t>& akid = crl.authority_key_id();
+
+      if(!akid.empty() && akid != key_id) {
+         return std::nullopt;
       }
    }
 
-   return {};
+   return crl;
 }
 
 bool Certificate_Store_In_Memory::contains(const X509_Certificate& cert) const {
