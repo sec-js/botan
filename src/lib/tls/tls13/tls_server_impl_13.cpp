@@ -168,22 +168,12 @@ void Server_Impl_13::process_handshake_msg(Handshake_Message_13 message) {
 void Server_Impl_13::process_post_handshake_msg(Post_Handshake_Message_13 message) {
    BOTAN_STATE_CHECK(is_handshake_complete());
 
-   // The throw is outside the lambda to work around a ICE in GCC 11
-   // TODO(Botan4) clean this up
-   const bool handled = std::visit(
-      [&](auto msg) -> bool {
-         if constexpr(std::is_constructible_v<Client_Post_Handshake_13_Message, decltype(msg)>) {
-            handle(msg);
-            return true;
-         } else {
-            return false;
-         }
-      },
-      std::move(message));
-
-   if(!handled) {
+   const auto msg = specialize_to<Client_Post_Handshake_13_Message>(std::move(message));
+   if(!msg) {
       throw TLS_Exception(Alert::UnexpectedMessage, "Received an unexpected post-handshake message");
    }
+
+   std::visit([&](auto&& m) { handle(m); }, *msg);
 }
 
 void Server_Impl_13::process_dummy_change_cipher_spec() {
