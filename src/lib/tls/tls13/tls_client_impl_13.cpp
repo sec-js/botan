@@ -96,15 +96,12 @@ void Client_Impl_13::process_handshake_msg(Handshake_Message_13 message) {
 void Client_Impl_13::process_post_handshake_msg(Post_Handshake_Message_13 message) {
    BOTAN_STATE_CHECK(is_handshake_complete());
 
-   std::visit(
-      [&](auto msg) {
-         if constexpr(std::is_constructible_v<Server_Post_Handshake_13_Message, decltype(msg)>) {
-            handle(msg);
-         } else {
-            throw TLS_Exception(Alert::UnexpectedMessage, "received an unexpected post-handshake message");
-         }
-      },
-      std::move(message));
+   const auto msg = specialize_to<Server_Post_Handshake_13_Message>(std::move(message));
+   if(!msg) {
+      throw TLS_Exception(Alert::UnexpectedMessage, "received an unexpected post-handshake message");
+   }
+
+   std::visit([&](auto&& m) { handle(m); }, *msg);
 }
 
 void Client_Impl_13::process_dummy_change_cipher_spec() {
