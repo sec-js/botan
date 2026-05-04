@@ -104,14 +104,15 @@ class Client_Impl_13 : public Channel_Impl_13 {
    private:
       const Server_Information m_info;
 
-      Client_Handshake_State_13 m_handshake_state;
-      Handshake_Transitions m_transitions;
+      struct Pending_Handshake {
+            Client_Handshake_State_13 state;
+            Handshake_Transitions transitions;
+            bool should_send_ccs = false;
+            std::optional<Session_with_Handle> resumed_session;
+            std::optional<std::string> psk_identity;
+      };
 
-      bool m_should_send_ccs;
-
-      std::optional<Session_with_Handle> m_resumed_session;
-      std::optional<std::string> m_psk_identity;
-
+      std::unique_ptr<Pending_Handshake> m_handshake;
       size_t m_session_tickets_received = 0;
 };
 

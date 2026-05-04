@@ -74,6 +74,16 @@ class Client_Handshake_State_12 final : public Handshake_State {
          return m_resumed_session->ciphersuite_code();
       }
 
+      std::vector<X509_Certificate> peer_cert_chain() const override {
+         if(is_a_resumption()) {
+            return resume_peer_certs();
+         }
+         if(server_certs() != nullptr) {
+            return server_certs()->cert_chain();
+         }
+         return {};
+      }
+
    private:
       std::unique_ptr<Public_Key> m_server_public_key;
 
@@ -144,19 +154,6 @@ Client_Impl_12::Client_Impl_12(const Channel_Impl::Downgrade_Information& downgr
 
 std::unique_ptr<Handshake_State> Client_Impl_12::new_handshake_state(std::unique_ptr<Handshake_IO> io) {
    return std::make_unique<Client_Handshake_State_12>(std::move(io), callbacks());
-}
-
-std::vector<X509_Certificate> Client_Impl_12::get_peer_cert_chain(const Handshake_State& state) const {
-   const Client_Handshake_State_12& cstate = dynamic_cast<const Client_Handshake_State_12&>(state);
-
-   if(cstate.is_a_resumption()) {
-      return cstate.resume_peer_certs();
-   }
-
-   if(state.server_certs() != nullptr) {
-      return state.server_certs()->cert_chain();
-   }
-   return std::vector<X509_Certificate>();
 }
 
 /*
@@ -250,8 +247,7 @@ bool key_usage_matches_ciphersuite(Key_Constraints usage, const Ciphersuite& sui
 /*
 * Process a handshake message
 */
-void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
-                                           Handshake_State& state_base,
+void Client_Impl_12::process_handshake_msg(Handshake_State& state_base,
                                            Handshake_Type type,
                                            const std::vector<uint8_t>& contents,
                                            bool epoch0_restart) {
@@ -259,7 +255,7 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
 
    Client_Handshake_State_12& state = dynamic_cast<Client_Handshake_State_12&>(state_base);
 
-   if(type == Handshake_Type::HelloRequest && active_state != nullptr) {
+   if(type == Handshake_Type::HelloRequest && active_state().has_value()) {
       const Hello_Request hello_request(contents);
 
       if(state.client_hello() != nullptr) {
@@ -449,17 +445,17 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
       } else {
          // new session
 
-         if(active_state != nullptr) {
+         if(active_state().has_value()) {
             // Here we are testing things that should not change during a renegotiation,
             // even if the server creates a new session. However they might change
             // in a resumption scenario.
 
-            if(active_state->version() != state.server_hello()->legacy_version()) {
+            if(active_state()->version() != state.server_hello()->legacy_version()) {
                throw TLS_Exception(Alert::ProtocolVersion, "Server changed version after renegotiation");
             }
 
             if(state.server_hello()->supports_extended_master_secret() !=
-               active_state->server_hello()->supports_extended_master_secret()) {
+               active_state()->supports_extended_master_secret()) {
                throw TLS_Exception(Alert::HandshakeFailure, "Server changed its mind about extended master secret");
             }
          }
@@ -523,8 +519,8 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
 
       const X509_Certificate server_cert = server_certs[0];
 
-      if(active_state != nullptr && active_state->server_certs() != nullptr) {
-         const X509_Certificate current_cert = active_state->server_certs()->cert_chain().at(0);
+      if(active_state().has_value() && !active_state()->peer_certs().empty()) {
+         const X509_Certificate& current_cert = active_state()->peer_certs().at(0);
 
          if(current_cert != server_cert) {
             throw TLS_Exception(Alert::BadCertificate, "Server certificate changed during renegotiation");
@@ -713,7 +709,7 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
                            Connection_Side::Client,
                            state.server_hello()->supports_extended_master_secret(),
                            state.server_hello()->supports_encrypt_then_mac(),
-                           get_peer_cert_chain(state),
+                           state.peer_cert_chain(),
                            m_info,
                            state.server_hello()->srtp_profile(),
                            callbacks().tls_current_timestamp(),

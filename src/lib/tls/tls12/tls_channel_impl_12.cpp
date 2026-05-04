@@ -13,6 +13,7 @@
 #include <botan/tls_messages_12.h>
 #include <botan/tls_policy.h>
 #include <botan/x509cert.h>
+#include <botan/internal/concat_util.h>
 #include <botan/internal/ct_utils.h>
 #include <botan/internal/loadstor.h>
 #include <botan/internal/mem_utils.h>
@@ -97,19 +98,20 @@ std::shared_ptr<Connection_Cipher_State> Channel_Impl_12::write_cipher_state_epo
 }
 
 std::vector<X509_Certificate> Channel_Impl_12::peer_cert_chain() const {
-   if(const auto* active = active_state()) {
-      return get_peer_cert_chain(*active);
+   if(m_active_state.has_value()) {
+      return m_active_state->peer_certs();
    }
    return std::vector<X509_Certificate>();
 }
 
 std::optional<std::string> Channel_Impl_12::external_psk_identity() const {
-   const auto* state = (active_state() != nullptr) ? active_state() : pending_state();
-   if(state != nullptr) {
-      return state->psk_identity();
-   } else {
-      return std::nullopt;
+   if(m_active_state.has_value()) {
+      return m_active_state->psk_identity();
    }
+   if(const auto* state = pending_state()) {
+      return state->psk_identity();
+   }
+   return std::nullopt;
 }
 
 Handshake_State& Channel_Impl_12::create_handshake_state(Protocol_Version version) {
@@ -117,8 +119,8 @@ Handshake_State& Channel_Impl_12::create_handshake_state(Protocol_Version versio
       throw Internal_Error("create_handshake_state called during handshake");
    }
 
-   if(const auto* active = active_state()) {
-      const Protocol_Version active_version = active->version();
+   if(m_active_state.has_value()) {
+      const Protocol_Version active_version = m_active_state->version();
 
       if(active_version.is_datagram_protocol() != version.is_datagram_protocol()) {
          throw TLS_Exception(Alert::ProtocolVersion,
@@ -161,8 +163,8 @@ Handshake_State& Channel_Impl_12::create_handshake_state(Protocol_Version versio
 
    m_pending_state = new_handshake_state(std::move(io));
 
-   if(const auto* active = active_state()) {
-      m_pending_state->set_version(active->version());
+   if(m_active_state.has_value()) {
+      m_pending_state->set_version(m_active_state->version());
    }
 
    return *m_pending_state;
@@ -182,12 +184,12 @@ void Channel_Impl_12::renegotiate(bool force_full_renegotiation) {
       return;
    }
 
-   if(const auto* active = active_state()) {
+   if(m_active_state.has_value()) {
       if(!force_full_renegotiation) {
          force_full_renegotiation = !policy().allow_resumption_for_renegotiation();
       }
 
-      initiate_handshake(create_handshake_state(active->version()), force_full_renegotiation);
+      initiate_handshake(create_handshake_state(m_active_state->version()), force_full_renegotiation);
    } else {
       throw Invalid_State("Cannot renegotiate on inactive connection");
    }
@@ -250,7 +252,7 @@ void Channel_Impl_12::change_cipher_spec_writer(Connection_Side side) {
 }
 
 bool Channel_Impl_12::is_handshake_complete() const {
-   return (active_state() != nullptr);
+   return m_active_state.has_value();
 }
 
 bool Channel_Impl_12::is_active() const {
@@ -262,10 +264,11 @@ bool Channel_Impl_12::is_closed() const {
 }
 
 void Channel_Impl_12::activate_session() {
-   std::swap(m_active_state, m_pending_state);
-   m_pending_state.reset();
+   BOTAN_ASSERT_NONNULL(m_pending_state);
 
-   if(!m_active_state->version().is_datagram_protocol()) {
+   const auto& state = *m_pending_state;
+
+   if(!state.version().is_datagram_protocol()) {
       // TLS is easy just remove all but the current state
       const uint16_t current_epoch = sequence_numbers().current_write_epoch();
 
@@ -274,6 +277,15 @@ void Channel_Impl_12::activate_session() {
       map_remove_if(not_current_epoch, m_write_cipher_states);
       map_remove_if(not_current_epoch, m_read_cipher_states);
    }
+
+   // For DTLS, keep the handshake IO for last-flight retransmission.
+   if(m_is_datagram) {
+      m_active_state = Active_Connection_State_12(state, application_protocol(), m_pending_state->take_handshake_io());
+   } else {
+      m_active_state = Active_Connection_State_12(state, application_protocol());
+   }
+
+   m_pending_state.reset();
 
    callbacks().tls_session_activated();
 }
@@ -324,10 +336,10 @@ size_t Channel_Impl_12::from_peer(std::span<const uint8_t> data) {
             throw TLS_Exception(Alert::RecordOverflow, "TLS plaintext record is larger than allowed maximum");
          }
 
-         const bool epoch0_restart = m_is_datagram && record.epoch() == 0 && active_state() != nullptr;
+         const bool epoch0_restart = m_is_datagram && record.epoch() == 0 && m_active_state.has_value();
          BOTAN_ASSERT_IMPLICATION(epoch0_restart, allow_epoch0_restart, "Allowed state");
 
-         const bool initial_record = epoch0_restart || (pending_state() == nullptr && active_state() == nullptr);
+         const bool initial_record = epoch0_restart || (pending_state() == nullptr && !m_active_state.has_value());
          bool initial_handshake_message = false;
          if(record.type() == Record_Type::Handshake && !m_record_buf.empty()) {
             const Handshake_Type type = static_cast<Handshake_Type>(m_record_buf[0]);
@@ -345,8 +357,8 @@ size_t Channel_Impl_12::from_peer(std::span<const uint8_t> data) {
                   record.version() != pending->version()) {
                   throw TLS_Exception(Alert::ProtocolVersion, "Received unexpected record version");
                }
-            } else if(const auto* active = active_state()) {
-               if(record.version() != active->version() && !initial_handshake_message) {
+            } else if(m_active_state.has_value()) {
+               if(record.version() != m_active_state->version() && !initial_handshake_message) {
                   throw TLS_Exception(Alert::ProtocolVersion, "Received unexpected record version");
                }
             }
@@ -410,8 +422,10 @@ void Channel_Impl_12::process_handshake_ccs(const secure_vector<uint8_t>& record
             if(epoch == current_epoch) {
                create_handshake_state(record_version);
             } else if(current_epoch > 0 && epoch == current_epoch - 1) {
-               BOTAN_ASSERT(m_active_state, "Have active state here");
-               m_active_state->handshake_io().add_record(record.data(), record.size(), record_type, record_sequence);
+               BOTAN_ASSERT(m_active_state.has_value() && m_active_state->dtls_handshake_io(),
+                            "Have DTLS handshake IO for retransmission");
+               m_active_state->dtls_handshake_io()->add_record(
+                  record.data(), record.size(), record_type, record_sequence);
             }
          } else {
             create_handshake_state(record_version);
@@ -432,7 +446,7 @@ void Channel_Impl_12::process_handshake_ccs(const secure_vector<uint8_t>& record
             break;
          }
 
-         process_handshake_msg(active_state(), *pending, msg.first, msg.second, epoch0_restart);
+         process_handshake_msg(*pending, msg.first, msg.second, epoch0_restart);
 
          if(!m_pending_state) {
             break;
@@ -442,7 +456,7 @@ void Channel_Impl_12::process_handshake_ccs(const secure_vector<uint8_t>& record
 }
 
 void Channel_Impl_12::process_application_data(uint64_t seq_no, const secure_vector<uint8_t>& record) {
-   if(active_state() == nullptr) {
+   if(!m_active_state.has_value()) {
       throw Unexpected_Message("Application data before handshake done");
    }
 
@@ -463,19 +477,17 @@ void Channel_Impl_12::process_alert(const secure_vector<uint8_t>& record) {
    //    no_renegotiation
    //       Sent by the client in response to a hello request or by the
    //       server in response to a client hello after initial handshaking.
-   if(alert_msg.type() == Alert::NoRenegotiation && active_state() != nullptr) {
+   if(alert_msg.type() == Alert::NoRenegotiation && m_active_state.has_value()) {
       m_pending_state.reset();
    }
 
    callbacks().tls_alert(alert_msg);
 
-   if(alert_msg.is_fatal()) {
-      if(const auto* active = active_state()) {
-         BOTAN_ASSERT_NONNULL(active->server_hello());
-         const auto& session_id = active->server_hello()->session_id();
-         if(!session_id.empty()) {
-            session_manager().remove(Session_Handle(session_id));
-         }
+   // If the alert is fatal on an active session, prevent later resumptions
+   if(alert_msg.is_fatal() && m_active_state.has_value()) {
+      const auto& sid = m_active_state->session_id();
+      if(!sid.empty()) {
+         session_manager().remove(Session_Handle(sid));
       }
    }
 
@@ -496,10 +508,9 @@ void Channel_Impl_12::write_record(Connection_Cipher_State* cipher_state,
                                    Record_Type record_type,
                                    const uint8_t input[],
                                    size_t length) {
-   BOTAN_ASSERT(m_pending_state || m_active_state, "Some connection state exists");
+   BOTAN_ASSERT(m_pending_state || m_active_state.has_value(), "Some connection state exists");
 
-   const Protocol_Version record_version =
-      (m_pending_state) ? (m_pending_state->version()) : (m_active_state->version());
+   const Protocol_Version record_version = (m_pending_state) ? (m_pending_state->version()) : m_active_state->version();
 
    const uint64_t next_seq = sequence_numbers().next_write_sequence(epoch);
 
@@ -555,16 +566,15 @@ void Channel_Impl_12::send_alert(const Alert& alert) {
       }
    }
 
-   if(alert.type() == Alert::NoRenegotiation && active_state() != nullptr) {
+   if(alert.type() == Alert::NoRenegotiation && m_active_state.has_value()) {
       m_pending_state.reset();
    }
 
    if(alert.is_fatal()) {
-      if(const auto* active = active_state()) {
-         BOTAN_ASSERT_NONNULL(active->server_hello());
-         const auto& session_id = active->server_hello()->session_id();
-         if(!session_id.empty()) {
-            session_manager().remove(Session_Handle(Session_ID(session_id)));
+      if(m_active_state.has_value()) {
+         const auto& sid = m_active_state->session_id();
+         if(!sid.empty()) {
+            session_manager().remove(Session_Handle(sid));
          }
       }
       reset_state();
@@ -579,13 +589,8 @@ void Channel_Impl_12::secure_renegotiation_check(const Client_Hello_12* client_h
    BOTAN_ASSERT_NONNULL(client_hello);
    const bool secure_renegotiation = client_hello->secure_renegotiation();
 
-   if(const auto* active = active_state()) {
-      BOTAN_ASSERT_NONNULL(active->client_hello());
-      const bool active_sr = active->client_hello()->secure_renegotiation();
-
-      if(active_sr != secure_renegotiation) {
-         throw TLS_Exception(Alert::HandshakeFailure, "Client changed its mind about secure renegotiation");
-      }
+   if(m_active_state && m_active_state->client_supports_secure_renegotiation() != secure_renegotiation) {
+      throw TLS_Exception(Alert::HandshakeFailure, "Client changed its mind about secure renegotiation");
    }
 
    if(secure_renegotiation) {
@@ -602,13 +607,8 @@ void Channel_Impl_12::secure_renegotiation_check(const Server_Hello_12* server_h
    BOTAN_ASSERT_NONNULL(server_hello);
    const bool secure_renegotiation = server_hello->secure_renegotiation();
 
-   if(const auto* active = active_state()) {
-      BOTAN_ASSERT_NONNULL(active->server_hello());
-      const bool active_sr = active->server_hello()->secure_renegotiation();
-
-      if(active_sr != secure_renegotiation) {
-         throw TLS_Exception(Alert::HandshakeFailure, "Server changed its mind about secure renegotiation");
-      }
+   if(m_active_state && m_active_state->server_supports_secure_renegotiation() != secure_renegotiation) {
+      throw TLS_Exception(Alert::HandshakeFailure, "Server changed its mind about secure renegotiation");
    }
 
    if(secure_renegotiation) {
@@ -622,28 +622,23 @@ void Channel_Impl_12::secure_renegotiation_check(const Server_Hello_12* server_h
 }
 
 std::vector<uint8_t> Channel_Impl_12::secure_renegotiation_data_for_client_hello() const {
-   if(const auto* active = active_state()) {
-      BOTAN_ASSERT_NONNULL(active->client_finished());
-      return active->client_finished()->verify_data();
+   if(m_active_state.has_value()) {
+      return m_active_state->client_finished_verify_data();
    }
    return std::vector<uint8_t>();
 }
 
 std::vector<uint8_t> Channel_Impl_12::secure_renegotiation_data_for_server_hello() const {
-   if(const auto* active = active_state()) {
-      BOTAN_ASSERT_NONNULL(active->client_finished());
-      BOTAN_ASSERT_NONNULL(active->server_finished());
-      std::vector<uint8_t> buf = active->client_finished()->verify_data();
-      buf += active->server_finished()->verify_data();
-      return buf;
+   if(m_active_state.has_value()) {
+      return concat(m_active_state->client_finished_verify_data(), m_active_state->server_finished_verify_data());
+   } else {
+      return {};
    }
-
-   return std::vector<uint8_t>();
 }
 
 bool Channel_Impl_12::secure_renegotiation_supported() const {
-   if(const auto* active = active_state()) {
-      return active->server_hello()->secure_renegotiation();
+   if(m_active_state.has_value()) {
+      return m_active_state->server_supports_secure_renegotiation();
    }
 
    if(const auto* pending = pending_state()) {
@@ -658,35 +653,28 @@ bool Channel_Impl_12::secure_renegotiation_supported() const {
 SymmetricKey Channel_Impl_12::key_material_export(std::string_view label,
                                                   std::string_view context,
                                                   size_t length) const {
-   if(const auto* active = active_state()) {
-      if(pending_state() != nullptr) {
-         throw Invalid_State("Channel_Impl_12::key_material_export cannot export during renegotiation");
-      }
-
-      auto prf = active->protocol_specific_prf();
-
-      const secure_vector<uint8_t>& master_secret = active->session_keys().master_secret();
-
-      BOTAN_ASSERT_NONNULL(active->client_hello());
-      BOTAN_ASSERT_NONNULL(active->server_hello());
-      std::vector<uint8_t> salt;
-      salt += active->client_hello()->random();
-      salt += active->server_hello()->random();
-
-      if(!context.empty()) {
-         const size_t context_size = context.length();
-         if(context_size > 0xFFFF) {
-            throw Invalid_Argument("key_material_export context is too long");
-         }
-         salt.push_back(get_byte<0>(static_cast<uint16_t>(context_size)));
-         salt.push_back(get_byte<1>(static_cast<uint16_t>(context_size)));
-         salt += as_span_of_bytes(context);
-      }
-
-      return SymmetricKey(prf->derive_key(length, master_secret, salt, as_span_of_bytes(label)));
-   } else {
+   if(!m_active_state.has_value()) {
       throw Invalid_State("Channel_Impl_12::key_material_export connection not active");
    }
+
+   if(pending_state() != nullptr) {
+      throw Invalid_State("Channel_Impl_12::key_material_export cannot export during renegotiation");
+   }
+
+   auto prf = callbacks().tls12_protocol_specific_kdf(m_active_state->prf_algo());
+
+   const auto salt = [&] {
+      if(context.empty()) {
+         return concat(m_active_state->client_random(), m_active_state->server_random());
+      } else {
+         return concat(m_active_state->client_random(),
+                       m_active_state->server_random(),
+                       store_be(static_cast<uint16_t>(context.size())),
+                       as_span_of_bytes(context));
+      }
+   }();
+
+   return SymmetricKey(prf->derive_key(length, m_active_state->master_secret(), salt, as_span_of_bytes(label)));
 }
 
 }  // namespace Botan::TLS
