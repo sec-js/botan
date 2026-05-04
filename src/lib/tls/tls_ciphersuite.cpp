@@ -104,6 +104,10 @@ bool Ciphersuite::signature_used() const {
    return auth_method() != Auth_Method::IMPLICIT;
 }
 
+bool Ciphersuite::is_certificate_required() const {
+   return signature_used() || kex_method() == Kex_Algo::STATIC_RSA;
+}
+
 std::optional<Ciphersuite> Ciphersuite::by_id(uint16_t suite) {
    const std::vector<Ciphersuite>& all_suites = all_known_ciphersuites();
    auto s = std::lower_bound(all_suites.begin(), all_suites.end(), suite);

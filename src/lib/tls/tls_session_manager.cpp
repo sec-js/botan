@@ -122,6 +122,9 @@ std::vector<Session_with_Handle> Session_Manager::find_and_filter(const Server_I
          //    the time expires. It MAY delete the ticket earlier based on
          //    local policy.
          //
+         //    A value [in ticket_lifetime_hint] of zero is reserved to indicate
+         //    that the lifetime of the ticket is unspecified.
+         //
          // RFC 5246 F.1.4 -- TLS 1.2
          //    If either party suspects that the session may have been
          //    compromised, or that certificates may have expired or been
@@ -146,7 +149,11 @@ std::vector<Session_with_Handle> Session_Manager::find_and_filter(const Server_I
          //       communicated by the server via the "lifetime_hint" are
          //       obeyed regardless of the policy setting.
          const auto session_lifetime_hint = session.session.lifetime_hint();
-         const bool expired = age > std::min(policy_lifetime, session_lifetime_hint);
+
+         const bool is_rfc5077_unspecified =
+            (session_lifetime_hint.count() == 0 && session.session.version().is_pre_tls_13());
+         const auto effective_hint = is_rfc5077_unspecified ? std::chrono::seconds::max() : session_lifetime_hint;
+         const bool expired = age > std::min(policy_lifetime, effective_hint);
 
          if(expired) {
             remove(session.handle);

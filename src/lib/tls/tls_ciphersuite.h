@@ -89,6 +89,14 @@ class BOTAN_PUBLIC_API(2, 0) Ciphersuite final {
       bool signature_used() const;
 
       /**
+      * @return true if this ciphersuite requires the server to present
+      * a certificate. True for both signature-authenticated suites and
+      * static RSA key exchange (which uses the server's RSA cert for
+      * key transport).
+      */
+      bool is_certificate_required() const;
+
+      /**
       * @return key exchange algorithm used by this ciphersuite
       */
       std::string kex_algo() const { return kex_method_to_string(kex_method()); }

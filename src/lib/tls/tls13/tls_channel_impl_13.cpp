@@ -335,8 +335,7 @@ SymmetricKey Channel_Impl_13::key_material_export(std::string_view label,
 }
 
 void Channel_Impl_13::update_traffic_keys(bool request_peer_update) {
-   BOTAN_STATE_CHECK(!is_downgrading());
-   BOTAN_STATE_CHECK(is_handshake_complete());
+   BOTAN_STATE_CHECK(!is_downgrading() && is_handshake_complete() && is_active());
    BOTAN_ASSERT_NONNULL(m_cipher_state);
    send_post_handshake_message(Key_Update(request_peer_update));
    m_cipher_state->update_write_keys(*this);

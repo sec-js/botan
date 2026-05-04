@@ -303,16 +303,22 @@ std::unique_ptr<PSK> PSK::select_offered_psk(std::string_view host,
          session_mgr.choose_from_offered_tickets(psk_identities, cipher.prf_algo(), callbacks, policy)) {
       auto& [session, psk_index] = selected_session.value();
 
-      // RFC 8446 4.6.1
-      //    Any ticket MUST only be resumed with a cipher suite that has the
-      //    same KDF hash algorithm as that used to establish the original
-      //    connection.
-      if(session.ciphersuite().prf_algo() != cipher.prf_algo()) {
-         throw TLS_Exception(Alert::InternalError,
-                             "Application chose a ticket that is not compatible with the negotiated ciphersuite");
-      }
+      // Refuse to resume a ticket across SNI: a session minted for one
+      // virtual host must not be presentable against another. Treat as a
+      // cache miss and fall through to the external PSK path rather than
+      // failing the connection.
+      if(session.server_info().hostname() == host) {
+         // RFC 8446 4.6.1
+         //    Any ticket MUST only be resumed with a cipher suite that has the
+         //    same KDF hash algorithm as that used to establish the original
+         //    connection.
+         if(session.ciphersuite().prf_algo() != cipher.prf_algo()) {
+            throw TLS_Exception(Alert::InternalError,
+                                "Application chose a ticket that is not compatible with the negotiated ciphersuite");
+         }
 
-      return std::unique_ptr<PSK>(new PSK(std::move(session), psk_index));
+         return std::unique_ptr<PSK>(new PSK(std::move(session), psk_index));
+      }
    }
 
    //
