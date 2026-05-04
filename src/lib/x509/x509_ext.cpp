@@ -133,7 +133,7 @@ std::unique_ptr<Certificate_Extension> Extensions::create_extn_obj(const OID& oi
       try {
          extn->decode_inner(body);
          return extn;
-      } catch(const Decoding_Error&) {
+      } catch(const Exception&) {
          // OID was recognized but contents failed to decode
          extn = std::make_unique<Cert_Extension::Unknown_Extension>(oid, critical, /*failed_to_decode=*/true);
       }
