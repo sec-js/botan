@@ -1045,6 +1045,10 @@ EC Points and Scalars
 
    Convert from an MPI to a scalar.
 
+.. cpp:function:: int botan_ec_scalar_to_mp(botan_ec_scalar_t ec_scalar, botan_mp_t* mp)
+
+   Convert from a scalar to an MPI.
+
 .. cpp:function:: int botan_ec_point_destroy(botan_ec_point_t ec_point)
 
    Destroy an object.

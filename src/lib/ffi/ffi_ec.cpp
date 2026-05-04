@@ -216,6 +216,15 @@ int botan_ec_scalar_from_mp(botan_ec_scalar_t* ec_scalar, botan_ec_group_t ec_gr
    });
 }
 
+int botan_ec_scalar_to_mp(botan_ec_scalar_t ec_scalar, botan_mp_t* mp) {
+   if(Botan::any_null_pointers(mp)) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
+   return BOTAN_FFI_VISIT(ec_scalar, [=](const auto& sc) -> int {
+      return ffi_new_object(mp, std::make_unique<Botan::BigInt>(sc.to_bigint()));
+   });
+}
+
 // ec points
 
 int botan_ec_point_destroy(botan_ec_point_t ec_point) {

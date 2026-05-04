@@ -1461,6 +1461,13 @@ int botan_ec_scalar_random(botan_ec_scalar_t* ec_scalar, botan_ec_group_t ec_gro
 BOTAN_FFI_EXPORT(3, 12)
 int botan_ec_scalar_from_mp(botan_ec_scalar_t* ec_scalar, botan_ec_group_t ec_group, botan_mp_t mp);
 
+/**
+* Convert from a scalar to an MPI
+* @returns a negative number on failure, 0 on success
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_ec_scalar_to_mp(botan_ec_scalar_t ec_scalar, botan_mp_t* mp);
+
 BOTAN_FFI_EXPORT(3, 12) int botan_ec_point_destroy(botan_ec_point_t ec_point);
 
 /**

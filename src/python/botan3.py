@@ -329,6 +329,7 @@ def _set_prototypes(dll):
     ffi_api(dll.botan_ec_scalar_destroy, [c_void_p])
     ffi_api(dll.botan_ec_scalar_random, [c_void_p, c_void_p, c_void_p])
     ffi_api(dll.botan_ec_scalar_from_mp, [c_void_p, c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_scalar_to_mp, [c_void_p, c_void_p])
     ffi_api(dll.botan_ec_point_destroy, [c_void_p])
     ffi_api(dll.botan_ec_point_identity, [c_void_p, c_void_p])
     ffi_api(dll.botan_ec_point_generator, [c_void_p, c_void_p])
@@ -3071,6 +3072,12 @@ class ECScalar:
         scalar = ECScalar()
         _DLL.botan_ec_scalar_from_mp(byref(scalar.handle_()), group.handle_(), mpi.handle_())
         return scalar
+
+    def to_mpi(self) -> MPI:
+        """Convert from a scalar to an MPI."""
+        obj = c_void_p(0)
+        _DLL.botan_ec_scalar_to_mp(self.__obj, byref(obj))
+        return MPI(obj)
 
 
 class ECPoint:

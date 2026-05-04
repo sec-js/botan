@@ -1391,6 +1391,10 @@ iWtHjIcunpiq6+IiB8IVu7Ncu6uPKoFS/mWzTvjgdNusmgNle9p3OAbE
         group = botan.ECGroup.from_name("secp256r1")
         rng = botan.RandomNumberGenerator()
 
+        forty_two = botan.MPI(42)
+        scalar_forty_two = botan.ECScalar.from_mpi(group, forty_two)
+        self.assertEqual(forty_two, scalar_forty_two.to_mpi())
+
         identity = group.get_identity()
         generator = group.get_generator()
         one = botan.ECScalar.from_mpi(group, botan.MPI(1))

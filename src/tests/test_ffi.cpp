@@ -5511,6 +5511,7 @@ class FFI_EC_Point_Test final : public FFI_Test {
          botan_ec_scalar_t random;
          botan_mp_t to_scalar;
          botan_ec_scalar_t from_mp;
+         botan_mp_t from_scalar;
 
          if(!Botan::EC_Group::supports_named_group("secp256r1")) {
             result.test_note("Group needed for test not supported by this build configuration.");
@@ -5523,10 +5524,13 @@ class FFI_EC_Point_Test final : public FFI_Test {
          TEST_FFI_OK(botan_ec_group_from_name, (&group, "secp256r1"));
          TEST_FFI_OK(botan_ec_scalar_random, (&random, group, rng));
          TEST_FFI_OK(botan_ec_scalar_from_mp, (&from_mp, group, to_scalar));
+         TEST_FFI_OK(botan_ec_scalar_to_mp, (from_mp, &from_scalar));
+         TEST_FFI_RC(1, botan_mp_equal, (to_scalar, from_scalar));
 
          TEST_FFI_OK(botan_ec_scalar_destroy, (random));
          TEST_FFI_OK(botan_ec_scalar_destroy, (from_mp));
          TEST_FFI_OK(botan_mp_destroy, (to_scalar));
+         TEST_FFI_OK(botan_mp_destroy, (from_scalar));
 
          botan_ec_point_t identity;
          botan_ec_point_t generator;
