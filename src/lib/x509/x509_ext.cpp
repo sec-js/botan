@@ -874,7 +874,7 @@ void TNAuthList::Entry::decode_from(class BER_Decoder& ber) {
       throw Decoding_Error(fmt("Unexpected TNEntry class tag {}", static_cast<uint32_t>(obj.get_class())));
    }
 
-   const uint32_t type_tag = static_cast<Type>(obj.type_tag());
+   const uint32_t type_tag = static_cast<uint32_t>(obj.type_tag());
 
    if(type_tag == ServiceProviderCode) {
       m_type = ServiceProviderCode;
