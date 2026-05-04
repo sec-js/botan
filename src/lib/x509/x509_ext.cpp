@@ -1639,6 +1639,10 @@ void ASBlocks::ASIdentifiers::decode_from(Botan::BER_Decoder& from) {
    }
 
    seq_dec.end_cons();
+
+   if(!m_asnum.has_value() && !m_rdi.has_value()) {
+      throw Decoding_Error("Invalid encoding for ASIdentifiers");
+   }
 }
 
 void ASBlocks::ASIdentifierChoice::encode_into(Botan::DER_Encoder& into) const {
@@ -1709,9 +1713,15 @@ void ASBlocks::validate(const X509_Certificate& /* unused */,
    // the extension may not contain asnums or rdis, but one of them is always present
    const bool asnum_present = m_as_identifiers.asnum().has_value();
    const bool rdi_present = m_as_identifiers.rdi().has_value();
+
+   if(!asnum_present && !rdi_present) {
+      // Invalid, should have been caught during decoding
+      cert_status.at(pos).insert(Certificate_Status_Code::AS_BLOCKS_ERROR);
+      return;
+   }
+
    bool asnum_needs_check = asnum_present ? m_as_identifiers.asnum().value().ranges().has_value() : false;
    bool rdi_needs_check = rdi_present ? m_as_identifiers.rdi().value().ranges().has_value() : false;
-   BOTAN_ASSERT_NOMSG(asnum_present || rdi_present);
 
    // we are at the (trusted) root cert, there is no parent to verify against
    if(pos == cert_path.size() - 1) {
