@@ -620,6 +620,12 @@ std::vector<std::string> get_cert_user_info(std::string_view req, const X509_DN&
          ip_str.push_back(ipv4_to_string(ipv4));
       }
       return ip_str;
+   } else if(req == "IPv6") {
+      std::vector<std::string> ip_str;
+      for(const auto& ipv6 : alt_name.ipv6_address()) {
+         ip_str.push_back(ipv6.to_string());
+      }
+      return ip_str;
    } else {
       return {};
    }
