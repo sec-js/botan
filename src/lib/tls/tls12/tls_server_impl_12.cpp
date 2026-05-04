@@ -19,6 +19,7 @@
 #include <botan/internal/stl_util.h>
 #include <botan/internal/tls_handshake_state.h>
 #include <botan/internal/tls_messages_internal.h>
+#include <unordered_set>
 
 namespace Botan::TLS {
 
@@ -144,18 +145,47 @@ uint16_t choose_ciphersuite(const Policy& policy,
    const bool have_shared_dh_group =
       (policy.choose_key_exchange_group(client_hello.supported_dh_groups(), {}) != Group_Params::NONE);
 
+   const std::unordered_set<uint16_t> client_suite_set(client_suites.begin(), client_suites.end());
+
+   const std::vector<Signature_Scheme> allowed_sig_schemes = policy.allowed_signature_schemes();
+   const std::vector<Signature_Scheme> client_sig_methods = client_hello.signature_schemes();
+
+   // Algorithm names (eg "RSA", "ECDSA") for which the client offered at least
+   // one signature_scheme that is available, is in our policy, and uses a hash we accept.
+   const std::unordered_set<std::string> client_sig_algs = [&] {
+      std::unordered_set<uint16_t> allowed_codes;
+      allowed_codes.reserve(allowed_sig_schemes.size());
+      for(auto s : allowed_sig_schemes) {
+         allowed_codes.insert(static_cast<uint16_t>(s.wire_code()));
+      }
+      std::unordered_set<std::string> result;
+      for(const Signature_Scheme scheme : client_sig_methods) {
+         if(!scheme.is_available()) {
+            continue;
+         }
+         if(!allowed_codes.contains(static_cast<uint16_t>(scheme.wire_code()))) {
+            continue;
+         }
+         if(!policy.allowed_signature_hash(scheme.hash_function_name())) {
+            continue;
+         }
+         result.insert(scheme.algorithm_name());
+      }
+      return result;
+   }();
+
    /*
    Walk down one list in preference order
    */
-   std::vector<uint16_t> pref_list = server_suites;
-   std::vector<uint16_t> other_list = client_suites;
+   const std::vector<uint16_t>& pref_list = our_choice ? server_suites : client_suites;
 
-   if(!our_choice) {
-      std::swap(pref_list, other_list);
-   }
+   auto in_other_list = [&](uint16_t suite_id) {
+      // server_suites is small and policy-controlled
+      return our_choice ? client_suite_set.contains(suite_id) : value_exists(server_suites, suite_id);
+   };
 
    for(auto suite_id : pref_list) {
-      if(!value_exists(other_list, suite_id)) {
+      if(!in_other_list(suite_id)) {
          continue;
       }
 
@@ -184,39 +214,13 @@ uint16_t choose_ciphersuite(const Policy& policy,
       }
 
       if(suite->signature_used()) {
-         const std::vector<Signature_Scheme> allowed = policy.allowed_signature_schemes();
-
-         const std::vector<Signature_Scheme> client_sig_methods = client_hello.signature_schemes();
-
-         /*
-         Contrary to the wording of draft-ietf-tls-md5-sha1-deprecate we do
-         not enforce that clients do not offer support SHA-1 or MD5
-         signatures; we just ignore it.
-         */
-         bool we_support_some_hash_by_client = false;
-
-         for(const Signature_Scheme scheme : client_sig_methods) {
-            if(!scheme.is_available()) {
-               continue;
-            }
-
-            if(!value_exists(allowed, scheme)) {
-               continue;
-            }
-
-            if(scheme.algorithm_name() == suite->sig_algo() &&
-               policy.allowed_signature_hash(scheme.hash_function_name())) {
-               we_support_some_hash_by_client = true;
-            }
-         }
-
          // The client's signature_algorithms list might not include a scheme
          // matching this suite's sig_algo (e.g. the client offered ECDSA
          // schemes but we're considering an RSA suite). That's just a
          // mismatch on this candidate, not a handshake-fatal condition - try
          // the next suite. The final "Can't agree on a ciphersuite" throw
          // below fires only if no candidate works.
-         if(!we_support_some_hash_by_client) {
+         if(!client_sig_algs.contains(suite->sig_algo())) {
             continue;
          }
       }
