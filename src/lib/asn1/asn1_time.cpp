@@ -66,7 +66,11 @@ void ASN1_Time::decode_from(BER_Decoder& source) {
                                static_cast<uint32_t>(ber_time.get_class())));
    }
 
-   set_to(ASN1::to_string(ber_time), ber_time.type());
+   try {
+      set_to(ASN1::to_string(ber_time), ber_time.type());
+   } catch(Invalid_Argument& e) {
+      throw Decoding_Error(fmt("Invalid ASN1_Time encoding: {}", e.what()));
+   }
 }
 
 std::string ASN1_Time::to_string() const {
