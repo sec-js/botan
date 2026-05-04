@@ -13,6 +13,7 @@
 
 #include <botan/xmss_parameters.h>
 
+#include <botan/assert.h>
 #include <botan/exceptn.h>
 #include <botan/internal/fmt.h>
 
@@ -89,6 +90,118 @@ XMSS_Parameters::xmss_algorithm_t XMSS_Parameters::xmss_id_from_string(std::stri
 XMSS_Parameters::XMSS_Parameters(std::string_view param_set) :
       XMSS_Parameters(XMSS_Parameters::xmss_id_from_string(param_set)) {}
 
+std::string_view XMSS_Parameters::hash_function_name() const {
+   switch(m_oid) {
+      case XMSS_SHA2_10_256:
+      case XMSS_SHA2_16_256:
+      case XMSS_SHA2_20_256:
+         return "SHA-256";
+
+      case XMSS_SHA2_10_512:
+      case XMSS_SHA2_16_512:
+      case XMSS_SHA2_20_512:
+         return "SHA-512";
+
+      case XMSS_SHAKE_10_256:
+      case XMSS_SHAKE_16_256:
+      case XMSS_SHAKE_20_256:
+         return "SHAKE-128(256)";
+
+      case XMSS_SHAKE_10_512:
+      case XMSS_SHAKE_16_512:
+      case XMSS_SHAKE_20_512:
+         return "SHAKE-256(512)";
+
+      case XMSS_SHA2_10_192:
+      case XMSS_SHA2_16_192:
+      case XMSS_SHA2_20_192:
+         return "Truncated(SHA-256,192)";
+
+      case XMSS_SHAKE256_10_256:
+      case XMSS_SHAKE256_16_256:
+      case XMSS_SHAKE256_20_256:
+         return "SHAKE-256(256)";
+
+      case XMSS_SHAKE256_10_192:
+      case XMSS_SHAKE256_16_192:
+      case XMSS_SHAKE256_20_192:
+         return "SHAKE-256(192)";
+
+      default:
+         BOTAN_ASSERT_UNREACHABLE();
+   }
+}
+
+std::string_view XMSS_Parameters::name() const {
+   switch(m_oid) {
+      case XMSS_SHA2_10_256:
+         return "XMSS-SHA2_10_256";
+
+      case XMSS_SHA2_16_256:
+         return "XMSS-SHA2_16_256";
+
+      case XMSS_SHA2_20_256:
+         return "XMSS-SHA2_20_256";
+
+      case XMSS_SHA2_10_512:
+         return "XMSS-SHA2_10_512";
+
+      case XMSS_SHA2_16_512:
+         return "XMSS-SHA2_16_512";
+
+      case XMSS_SHA2_20_512:
+         return "XMSS-SHA2_20_512";
+
+      case XMSS_SHAKE_10_256:
+         return "XMSS-SHAKE_10_256";
+
+      case XMSS_SHAKE_16_256:
+         return "XMSS-SHAKE_16_256";
+
+      case XMSS_SHAKE_20_256:
+         return "XMSS-SHAKE_20_256";
+
+      case XMSS_SHAKE_10_512:
+         return "XMSS-SHAKE_10_512";
+
+      case XMSS_SHAKE_16_512:
+         return "XMSS-SHAKE_16_512";
+
+      case XMSS_SHAKE_20_512:
+         return "XMSS-SHAKE_20_512";
+
+      case XMSS_SHA2_10_192:
+         return "XMSS-SHA2_10_192";
+
+      case XMSS_SHA2_16_192:
+         return "XMSS-SHA2_16_192";
+
+      case XMSS_SHA2_20_192:
+         return "XMSS-SHA2_20_192";
+
+      case XMSS_SHAKE256_10_256:
+         return "XMSS-SHAKE256_10_256";
+
+      case XMSS_SHAKE256_16_256:
+         return "XMSS-SHAKE256_16_256";
+
+      case XMSS_SHAKE256_20_256:
+         return "XMSS-SHAKE256_20_256";
+
+      case XMSS_SHAKE256_10_192:
+         return "XMSS-SHAKE256_10_192";
+
+      case XMSS_SHAKE256_16_192:
+         return "XMSS-SHAKE256_16_192";
+
+      case XMSS_SHAKE256_20_192:
+         return "XMSS-SHAKE256_20_192";
+
+      default:
+         BOTAN_ASSERT_UNREACHABLE();
+   }
+}
+
 XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
    switch(oid) {
       case XMSS_SHA2_10_256:
@@ -97,8 +210,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 67;
          m_tree_height = 10;
-         m_name = "XMSS-SHA2_10_256";
-         m_hash_name = "SHA-256";
          m_strength = 256;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHA2_256;
          break;
@@ -108,8 +219,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 67;
          m_tree_height = 16;
-         m_name = "XMSS-SHA2_16_256";
-         m_hash_name = "SHA-256";
          m_strength = 256;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHA2_256;
          break;
@@ -119,8 +228,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 67;
          m_tree_height = 20;
-         m_name = "XMSS-SHA2_20_256";
-         m_hash_name = "SHA-256";
          m_strength = 256;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHA2_256;
          break;
@@ -130,8 +237,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 131;
          m_tree_height = 10;
-         m_name = "XMSS-SHA2_10_512";
-         m_hash_name = "SHA-512";
          m_strength = 512;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHA2_512;
          break;
@@ -141,8 +246,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 131;
          m_tree_height = 16;
-         m_name = "XMSS-SHA2_16_512";
-         m_hash_name = "SHA-512";
          m_strength = 512;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHA2_512;
          break;
@@ -152,8 +255,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 131;
          m_tree_height = 20;
-         m_name = "XMSS-SHA2_20_512";
-         m_hash_name = "SHA-512";
          m_strength = 512;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHA2_512;
          break;
@@ -163,8 +264,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 67;
          m_tree_height = 10;
-         m_name = "XMSS-SHAKE_10_256";
-         m_hash_name = "SHAKE-128(256)";
          m_strength = 256;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_256;
          break;
@@ -174,8 +273,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 67;
          m_tree_height = 16;
-         m_name = "XMSS-SHAKE_16_256";
-         m_hash_name = "SHAKE-128(256)";
          m_strength = 256;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_256;
          break;
@@ -185,8 +282,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 67;
          m_tree_height = 20;
-         m_name = "XMSS-SHAKE_20_256";
-         m_hash_name = "SHAKE-128(256)";
          m_strength = 256;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_256;
          break;
@@ -196,8 +291,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 131;
          m_tree_height = 10;
-         m_name = "XMSS-SHAKE_10_512";
-         m_hash_name = "SHAKE-256(512)";
          m_strength = 512;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_512;
          break;
@@ -207,8 +300,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 131;
          m_tree_height = 16;
-         m_name = "XMSS-SHAKE_16_512";
-         m_hash_name = "SHAKE-256(512)";
          m_strength = 512;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_512;
          break;
@@ -218,8 +309,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 131;
          m_tree_height = 20;
-         m_name = "XMSS-SHAKE_20_512";
-         m_hash_name = "SHAKE-256(512)";
          m_strength = 512;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_512;
          break;
@@ -229,8 +318,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 51;
          m_tree_height = 10;
-         m_name = "XMSS-SHA2_10_192";
-         m_hash_name = "Truncated(SHA-256,192)";
          m_strength = 192;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHA2_192;
          break;
@@ -240,8 +327,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 51;
          m_tree_height = 16;
-         m_name = "XMSS-SHA2_16_192";
-         m_hash_name = "Truncated(SHA-256,192)";
          m_strength = 192;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHA2_192;
          break;
@@ -251,8 +336,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 51;
          m_tree_height = 20;
-         m_name = "XMSS-SHA2_20_192";
-         m_hash_name = "Truncated(SHA-256,192)";
          m_strength = 192;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHA2_192;
          break;
@@ -262,8 +345,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 67;
          m_tree_height = 10;
-         m_name = "XMSS-SHAKE256_10_256";
-         m_hash_name = "SHAKE-256(256)";
          m_strength = 256;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_256_256;
          break;
@@ -273,8 +354,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 67;
          m_tree_height = 16;
-         m_name = "XMSS-SHAKE256_16_256";
-         m_hash_name = "SHAKE-256(256)";
          m_strength = 256;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_256_256;
          break;
@@ -284,8 +363,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 67;
          m_tree_height = 20;
-         m_name = "XMSS-SHAKE256_20_256";
-         m_hash_name = "SHAKE-256(256)";
          m_strength = 256;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_256_256;
          break;
@@ -295,8 +372,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 51;
          m_tree_height = 10;
-         m_name = "XMSS-SHAKE256_10_192";
-         m_hash_name = "SHAKE-256(192)";
          m_strength = 192;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_256_192;
          break;
@@ -306,8 +381,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 51;
          m_tree_height = 16;
-         m_name = "XMSS-SHAKE256_16_192";
-         m_hash_name = "SHAKE-256(192)";
          m_strength = 192;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_256_192;
          break;
@@ -317,8 +390,6 @@ XMSS_Parameters::XMSS_Parameters(xmss_algorithm_t oid) : m_oid(oid) {
          m_w = 16;
          m_len = 51;
          m_tree_height = 20;
-         m_name = "XMSS-SHAKE256_20_192";
-         m_hash_name = "SHAKE-256(192)";
          m_strength = 192;
          m_wots_oid = XMSS_WOTS_Parameters::ots_algorithm_t::WOTSP_SHAKE_256_192;
          break;
