@@ -330,6 +330,10 @@ Response::Response(const uint8_t response_bits[], size_t response_bits_len) :
       if(!has_signer && !has_key_hash) {
          throw Decoding_Error("OCSP response contains neither byName nor byKey in responderID field");
       }
+      if(has_key_hash && m_key_hash.size() != 20) {
+         // KeyHash ::= OCTET STRING -- SHA-1 hash of responder's public key
+         throw Decoding_Error("OCSP response contains a byKey with invalid length");
+      }
 
       response_bytes.verify_end();
       response_bytes_ctx.verify_end();
