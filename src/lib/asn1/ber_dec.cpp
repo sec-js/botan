@@ -133,11 +133,11 @@ BerDecodedLength decode_length(DataSource* ber, size_t allow_indef, bool der_mod
    }
 
    const size_t num_length_bytes = (b & 0x7F);
-
-   const size_t field_size = 1 + num_length_bytes;
-   if(field_size > 5) {
+   if(num_length_bytes > 4) {
       throw BER_Decoding_Error("Length field is too large");
    }
+
+   const size_t field_size = 1 + num_length_bytes;
 
    if(num_length_bytes == 0) {
       if(der_mode) {
@@ -164,9 +164,7 @@ BerDecodedLength decode_length(DataSource* ber, size_t allow_indef, bool der_mod
       if(ber->read_byte(b) == 0) {
          throw BER_Decoding_Error("Corrupted length field");
       }
-      if(get_byte<0>(length) != 0) {
-         throw BER_Decoding_Error("Field length overflow");
-      }
+      // Can't overflow since we already checked that num_length_bytes <= 4
       length = (length << 8) | b;
    }
 
