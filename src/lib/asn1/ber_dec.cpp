@@ -551,15 +551,6 @@ BER_Decoder::BER_Decoder(std::span<const uint8_t> buf, Limits limits) : m_limits
    m_source = m_data_src.get();
 }
 
-/*
-* BER_Decoder Copy Constructor
-*/
-BER_Decoder::BER_Decoder(const BER_Decoder& other) :
-      m_limits(other.m_limits), m_parent(other.m_parent), m_source(other.m_source) {
-   // take ownership of other's data source
-   std::swap(m_data_src, other.m_data_src);
-}
-
 BER_Decoder::BER_Decoder(BER_Decoder&& other) noexcept = default;
 
 BER_Decoder& BER_Decoder::operator=(BER_Decoder&&) noexcept = default;
