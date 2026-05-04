@@ -1609,7 +1609,7 @@ void ASBlocks::ASIdentifiers::decode_from(Botan::BER_Decoder& from) {
    if(elem_type_tag == 0) {
       BER_Decoder as_obj_ber = BER_Decoder(elem_obj, seq_dec.limits());
       ASIdentifierChoice asnum;
-      as_obj_ber.decode(asnum);
+      as_obj_ber.decode(asnum).verify_end();
       m_asnum = asnum;
 
       const BER_Object rdi_obj = seq_dec.get_next_object();
@@ -1617,7 +1617,7 @@ void ASBlocks::ASIdentifiers::decode_from(Botan::BER_Decoder& from) {
       if(static_cast<uint32_t>(rdi_type_tag) == 1) {
          BER_Decoder rdi_obj_ber = BER_Decoder(rdi_obj, seq_dec.limits());
          ASIdentifierChoice rdi;
-         rdi_obj_ber.decode(rdi);
+         rdi_obj_ber.decode(rdi).verify_end();
          m_rdi = rdi;
       } else if(rdi_type_tag != ASN1_Type::NoObject) {
          throw Decoding_Error(fmt("Unexpected type for ASIdentifiers rdi: {}", static_cast<uint32_t>(rdi_type_tag)));
@@ -1628,7 +1628,7 @@ void ASBlocks::ASIdentifiers::decode_from(Botan::BER_Decoder& from) {
    if(elem_type_tag == 1) {
       BER_Decoder rdi_obj_ber = BER_Decoder(elem_obj, seq_dec.limits());
       ASIdentifierChoice rdi;
-      rdi_obj_ber.decode(rdi);
+      rdi_obj_ber.decode(rdi).verify_end();
       m_rdi = rdi;
       const BER_Object end = seq_dec.get_next_object();
       const ASN1_Type end_type_tag = end.type_tag();
@@ -1661,6 +1661,7 @@ void ASBlocks::ASIdentifierChoice::decode_from(Botan::BER_Decoder& from) {
    const ASN1_Type next_tag = from.peek_next_object().type_tag();
 
    if(next_tag == ASN1_Type::Null) {
+      from.decode_null();
       m_as_ranges = std::nullopt;
    } else if(next_tag == ASN1_Type::Sequence) {
       std::vector<ASIdOrRange> as_ranges;

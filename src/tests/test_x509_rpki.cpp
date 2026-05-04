@@ -8,6 +8,7 @@
 #include "tests.h"
 
 #if defined(BOTAN_HAS_X509_CERTIFICATES)
+   #include <botan/ber_dec.h>
    #include <botan/certstor.h>
    #include <botan/pk_algs.h>
    #include <botan/pubkey.h>
@@ -367,6 +368,45 @@ Test::Result test_x509_as_blocks_extension_decode() {
 }
 
    #endif
+
+Test::Result test_x509_as_blocks_extension_decode_malformed() {
+   Test::Result result("X509 AS Block decode malformed");
+   result.start_timer();
+   using Botan::Cert_Extension::ASBlocks;
+
+   // ASIdentifiers default ctor is private; seed via the public ctor and
+   // overwrite by calling decode_from on hand-crafted BER.
+   const auto dummy_choice = ASBlocks::ASIdentifierChoice(std::vector<ASBlocks::ASIdOrRange>{ASBlocks::ASIdOrRange(1)});
+
+   auto try_decode = [&](const std::string& what, const std::vector<uint8_t>& bytes) {
+      result.test_throws(what, [&]() {
+         ASBlocks::ASIdentifiers ident(dummy_choice, std::nullopt);
+         Botan::BER_Decoder dec(bytes);
+         dec.decode(ident).verify_end();
+      });
+   };
+
+   // SEQUENCE { [0] EXPLICIT { NULL with non-zero contents } }
+   try_decode("ASIdentifiers rejects asnum NULL with non-zero length", {0x30, 0x05, 0xA0, 0x03, 0x05, 0x01, 0x00});
+
+   // SEQUENCE { [0] EXPLICIT { NULL, trailing INTEGER } }
+   try_decode("ASIdentifiers rejects trailing data after asnum NULL",
+              {0x30, 0x07, 0xA0, 0x05, 0x05, 0x00, 0x02, 0x01, 0x00});
+
+   // SEQUENCE { [0] EXPLICIT { SEQUENCE { INTEGER 5042 }, trailing INTEGER } }
+   try_decode("ASIdentifiers rejects trailing data after asnum SEQUENCE",
+              {0x30, 0x0B, 0xA0, 0x09, 0x30, 0x04, 0x02, 0x02, 0x13, 0xB2, 0x02, 0x01, 0x00});
+
+   // SEQUENCE { [1] EXPLICIT { NULL with non-zero contents } }
+   try_decode("ASIdentifiers rejects rdi NULL with non-zero length", {0x30, 0x05, 0xA1, 0x03, 0x05, 0x01, 0x00});
+
+   // SEQUENCE { [1] EXPLICIT { SEQUENCE { INTEGER 5042 }, trailing INTEGER } }
+   try_decode("ASIdentifiers rejects trailing data after rdi SEQUENCE",
+              {0x30, 0x0B, 0xA1, 0x09, 0x30, 0x04, 0x02, 0x02, 0x13, 0xB2, 0x02, 0x01, 0x00});
+
+   result.end_timer();
+   return result;
+}
 
 Test::Result test_x509_ip_addr_blocks_rfc3779_example() {
    Test::Result result("X509 IP Address Blocks rfc3779 example");
@@ -2414,6 +2454,7 @@ class X509_RPKI_Tests final : public Test {
          results.push_back(test_x509_ip_addr_blocks_extension_decode());
          results.push_back(test_x509_as_blocks_extension_decode());
    #endif
+         results.push_back(test_x509_as_blocks_extension_decode_malformed());
          results.push_back(test_x509_ip_addr_blocks_rfc3779_example());
          results.push_back(test_x509_ip_addr_blocks_encode_builder());
          results.push_back(test_x509_ip_addr_blocks_extension_encode_ctor());
