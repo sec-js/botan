@@ -370,6 +370,13 @@ void Basic_Constraints::decode_inner(const std::vector<uint8_t>& in) {
       .decode_optional(m_path_length_constraint, ASN1_Type::Integer, ASN1_Class::Universal)
       .end_cons()
       .verify_end();
+
+   /* RFC 5280 Section 4.2.1.9:
+   *  "CAs MUST NOT include the pathLenConstraint field unless the cA boolean
+   *  is asserted and the key usage extension asserts the keyCertSign bit" */
+   if(!m_is_ca && m_path_length_constraint.has_value()) {
+      throw Decoding_Error("BasicConstraints pathLenConstraint must not be present when cA is FALSE");
+   }
 }
 
 /*
