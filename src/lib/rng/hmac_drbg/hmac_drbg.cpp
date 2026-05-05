@@ -7,6 +7,7 @@
 
 #include <botan/hmac_drbg.h>
 
+#include <botan/assert.h>
 #include <botan/exceptn.h>
 #include <botan/mac.h>
 #include <botan/mem_ops.h>
@@ -48,6 +49,12 @@ void check_limits(size_t reseed_interval, size_t max_number_of_bytes_per_request
    }
 }
 
+template <typename T>
+std::unique_ptr<T> check_not_null(std::unique_ptr<T> obj) {
+   BOTAN_ARG_CHECK(obj != nullptr, "Argument must not be null");
+   return obj;
+}
+
 }  // namespace
 
 HMAC_DRBG::~HMAC_DRBG() = default;
@@ -57,11 +64,9 @@ HMAC_DRBG::HMAC_DRBG(std::unique_ptr<MessageAuthenticationCode> prf,
                      size_t reseed_interval,
                      size_t max_number_of_bytes_per_request) :
       Stateful_RNG(underlying_rng, reseed_interval),
-      m_mac(std::move(prf)),
+      m_mac(check_not_null(std::move(prf))),
       m_max_number_of_bytes_per_request(max_number_of_bytes_per_request),
       m_security_level(hmac_drbg_security_level(m_mac->output_length())) {
-   BOTAN_ASSERT_NONNULL(m_mac);
-
    check_limits(reseed_interval, max_number_of_bytes_per_request);
 
    clear();
@@ -73,11 +78,9 @@ HMAC_DRBG::HMAC_DRBG(std::unique_ptr<MessageAuthenticationCode> prf,
                      size_t reseed_interval,
                      size_t max_number_of_bytes_per_request) :
       Stateful_RNG(underlying_rng, entropy_sources, reseed_interval),
-      m_mac(std::move(prf)),
+      m_mac(check_not_null(std::move(prf))),
       m_max_number_of_bytes_per_request(max_number_of_bytes_per_request),
       m_security_level(hmac_drbg_security_level(m_mac->output_length())) {
-   BOTAN_ASSERT_NONNULL(m_mac);
-
    check_limits(reseed_interval, max_number_of_bytes_per_request);
 
    clear();
@@ -88,21 +91,18 @@ HMAC_DRBG::HMAC_DRBG(std::unique_ptr<MessageAuthenticationCode> prf,
                      size_t reseed_interval,
                      size_t max_number_of_bytes_per_request) :
       Stateful_RNG(entropy_sources, reseed_interval),
-      m_mac(std::move(prf)),
+      m_mac(check_not_null(std::move(prf))),
       m_max_number_of_bytes_per_request(max_number_of_bytes_per_request),
       m_security_level(hmac_drbg_security_level(m_mac->output_length())) {
-   BOTAN_ASSERT_NONNULL(m_mac);
-
    check_limits(reseed_interval, max_number_of_bytes_per_request);
 
    clear();
 }
 
 HMAC_DRBG::HMAC_DRBG(std::unique_ptr<MessageAuthenticationCode> prf) :
-      m_mac(std::move(prf)),
+      m_mac(check_not_null(std::move(prf))),
       m_max_number_of_bytes_per_request(64 * 1024),
       m_security_level(hmac_drbg_security_level(m_mac->output_length())) {
-   BOTAN_ASSERT_NONNULL(m_mac);
    clear();
 }
 
@@ -133,6 +133,7 @@ std::string HMAC_DRBG::name() const {
 * See NIST SP800-90A section 10.1.2.5
 */
 void HMAC_DRBG::generate_output(std::span<uint8_t> output, std::span<const uint8_t> input) {
+   // This is an internal function, callers should have validated this beforehand
    BOTAN_ASSERT_NOMSG(!output.empty());
 
    if(!input.empty()) {
