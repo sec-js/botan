@@ -260,6 +260,44 @@ Test::Result test_asn1_negative_int_encoding() {
    return result;
 }
 
+Test::Result test_der_constructed_tag_17_not_sorted() {
+   Test::Result result("DER constructed [17] is not SET-sorted");
+
+   // Two INTEGERs in descending order. A universal SET would lex-sort and put
+   // 0x01 before 0x02; a non-universal constructed [17] must preserve order.
+   const std::vector<uint8_t> first = {0x02, 0x01, 0x02};   // INTEGER 2
+   const std::vector<uint8_t> second = {0x02, 0x01, 0x01};  // INTEGER 1
+
+   auto encode_with = [&](auto starter) {
+      Botan::DER_Encoder enc;
+      starter(enc).raw_bytes(first).raw_bytes(second).end_cons();
+      return enc.get_contents_unlocked();
+   };
+
+   // Reference: a universal SET of the same children gets sorted
+   const auto set_enc = encode_with([](Botan::DER_Encoder& e) -> Botan::DER_Encoder& { return e.start_set(); });
+   const std::vector<uint8_t> set_expected = {0x31, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02};
+   result.test_bin_eq("universal SET is lex-sorted", set_enc, set_expected);
+
+   // start_context_specific(17): tag byte = ContextSpecific | Constructed | 17 = 0xB1
+   const auto ctx_enc =
+      encode_with([](Botan::DER_Encoder& e) -> Botan::DER_Encoder& { return e.start_context_specific(17); });
+   const std::vector<uint8_t> ctx_expected = {0xB1, 0x06, 0x02, 0x01, 0x02, 0x02, 0x01, 0x01};
+   result.test_bin_eq("context-specific [17] preserves order", ctx_enc, ctx_expected);
+
+   // start_explicit_context_specific(17): same tag byte 0xB1
+   const auto explicit_ctx_enc =
+      encode_with([](Botan::DER_Encoder& e) -> Botan::DER_Encoder& { return e.start_explicit_context_specific(17); });
+   result.test_bin_eq("explicit context-specific [17] preserves order", explicit_ctx_enc, ctx_expected);
+
+   // start_explicit(17): used to throw Internal_Error; must now produce [17] in order
+   const auto explicit_enc =
+      encode_with([](Botan::DER_Encoder& e) -> Botan::DER_Encoder& { return e.start_explicit(17); });
+   result.test_bin_eq("start_explicit(17) preserves order", explicit_enc, ctx_expected);
+
+   return result;
+}
+
 Test::Result test_ber_indefinite_length_trailing_data() {
    Test::Result result("BER indefinite length trailing data");
 
@@ -376,6 +414,7 @@ class ASN1_Tests final : public Test {
          results.push_back(test_asn1_utf8_encoding());
          results.push_back(test_asn1_tag_underlying_type());
          results.push_back(test_asn1_negative_int_encoding());
+         results.push_back(test_der_constructed_tag_17_not_sorted());
 
          return results;
       }

@@ -79,7 +79,7 @@ DER_Encoder::DER_Encoder(std::vector<uint8_t>& vec) {
 void DER_Encoder::DER_Sequence::push_contents(DER_Encoder& der) {
    const auto real_class_tag = m_class_tag | ASN1_Class::Constructed;
 
-   if(m_type_tag == ASN1_Type::Set) {
+   if(m_type_tag == ASN1_Type::Set && m_class_tag == ASN1_Class::Universal) {
       std::sort(m_set_contents.begin(), m_set_contents.end());
       for(const auto& set_elem : m_set_contents) {
          m_contents += set_elem;
@@ -95,7 +95,7 @@ void DER_Encoder::DER_Sequence::push_contents(DER_Encoder& der) {
 * Add an encoded value to the SEQUENCE/SET
 */
 void DER_Encoder::DER_Sequence::add_bytes(const uint8_t data[], size_t length) {
-   if(m_type_tag == ASN1_Type::Set) {
+   if(m_type_tag == ASN1_Type::Set && m_class_tag == ASN1_Class::Universal) {
       m_set_contents.push_back(secure_vector<uint8_t>(data, data + length));
    } else {
       m_contents += std::make_pair(data, length);
@@ -103,7 +103,7 @@ void DER_Encoder::DER_Sequence::add_bytes(const uint8_t data[], size_t length) {
 }
 
 void DER_Encoder::DER_Sequence::add_bytes(const uint8_t hdr[], size_t hdr_len, const uint8_t val[], size_t val_len) {
-   if(m_type_tag == ASN1_Type::Set) {
+   if(m_type_tag == ASN1_Type::Set && m_class_tag == ASN1_Class::Universal) {
       secure_vector<uint8_t> m;
       m.reserve(hdr_len + val_len);
       m += std::make_pair(hdr, hdr_len);
@@ -186,14 +186,7 @@ DER_Encoder& DER_Encoder::end_cons() {
 * Start a new ASN.1 EXPLICIT encoding
 */
 DER_Encoder& DER_Encoder::start_explicit(uint16_t type_no) {
-   const ASN1_Type type_tag = static_cast<ASN1_Type>(type_no);
-
-   // This would confuse DER_Sequence
-   if(type_tag == ASN1_Type::Set) {
-      throw Internal_Error("DER_Encoder.start_explicit(SET) not supported");
-   }
-
-   return start_cons(type_tag, ASN1_Class::ContextSpecific);
+   return start_cons(static_cast<ASN1_Type>(type_no), ASN1_Class::ContextSpecific);
 }
 
 /*
