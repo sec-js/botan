@@ -223,22 +223,22 @@ const Extensions& PKCS10_Request::extensions() const {
 * Return the key constraints (if any)
 */
 Key_Constraints PKCS10_Request::constraints() const {
-   if(auto ext = extensions().get(OID::from_string("X509v3.KeyUsage"))) {
-      return dynamic_cast<Cert_Extension::Key_Usage&>(*ext).get_constraints();
+   if(const auto* ext = extensions().get_extension_object_as<Cert_Extension::Key_Usage>()) {
+      return ext->get_constraints();
+   } else {
+      return Key_Constraints::None;
    }
-
-   return Key_Constraints::None;
 }
 
 /*
 * Return the extendend key constraints (if any)
 */
 std::vector<OID> PKCS10_Request::ex_constraints() const {
-   if(auto ext = extensions().get(OID::from_string("X509v3.ExtendedKeyUsage"))) {
-      return dynamic_cast<Cert_Extension::Extended_Key_Usage&>(*ext).object_identifiers();
+   if(const auto* ext = extensions().get_extension_object_as<Cert_Extension::Extended_Key_Usage>()) {
+      return ext->object_identifiers();
+   } else {
+      return {};
    }
-
-   return {};
 }
 
 /*
