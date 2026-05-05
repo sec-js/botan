@@ -522,7 +522,20 @@ bool NameConstraints::is_permitted(const X509_Certificate& cert, bool reject_unk
       return false;
    };
 
-   if(!is_permitted_dn(cert.subject_dn())) {
+   /*
+   RFC 5280 4.1.2.6:
+      If subject naming information is present only in the
+      subjectAltName extension (e.g., a key bound only to an email
+      address or URI), then the subject name MUST be an empty
+      sequence and the subjectAltName extension MUST be critical.
+
+   RFC 5280 4.2.1.10:
+      Restrictions of the form directoryName MUST be applied to the subject
+      field in the certificate (when the certificate includes a non-empty
+      subject field) and to any names of type directoryName in the
+      subjectAltName extension.
+   */
+   if(!cert.subject_dn().empty() && !is_permitted_dn(cert.subject_dn())) {
       return false;
    }
 
