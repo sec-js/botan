@@ -74,8 +74,9 @@ X509_DN normalize(const X509_DN& dn) {
 
          for(const char c : str.value()) {
             if(c != ' ') {
-               // store all 'normal' characters as upper case
-               normalized.push_back(std::toupper(c));
+               // PrintableString is ASCII-only; locale-independent fold to upper case
+               const char up = (c >= 'a' && c <= 'z') ? static_cast<char>(c - ('a' - 'A')) : c;
+               normalized.push_back(up);
             } else if(!normalized.empty() && normalized.back() != ' ') {
                // remove leading and squash multiple white spaces
                normalized.push_back(c);
