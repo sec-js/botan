@@ -418,6 +418,13 @@ void Key_Usage::decode_inner(const std::vector<uint8_t>& in) {
       }
    }();
 
+   /* RFC 5280 Section 4.2.1.3:
+   *  "When the keyUsage extension appears in a certificate, at least one of
+   *  the bits MUST be set to 1." */
+   if(usage == 0) {
+      throw Decoding_Error("KeyUsage extension must have at least one bit set");
+   }
+
    m_constraints = Key_Constraints(usage);
 }
 
