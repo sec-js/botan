@@ -27,6 +27,8 @@ namespace Botan {
 
 namespace {
 
+constexpr size_t MaximumKeyIdentifierLength = 64;
+
 template <std::derived_from<Certificate_Extension> T>
 auto make_extension([[maybe_unused]] const OID& oid) {
    BOTAN_DEBUG_ASSERT(oid == T::static_oid());
@@ -450,6 +452,14 @@ std::vector<uint8_t> Subject_Key_ID::encode_inner() const {
 void Subject_Key_ID::decode_inner(const std::vector<uint8_t>& in) {
    /* RFC 5280 Section 4.2.1.2 - SubjectKeyIdentifier ::= KeyIdentifier */
    BER_Decoder(in, BER_Decoder::Limits::DER()).decode(m_key_id, ASN1_Type::OctetString).verify_end();
+
+   if(m_key_id.empty()) {
+      throw Decoding_Error("SubjectKeyIdentifier must not be empty");
+   }
+   if(m_key_id.size() > MaximumKeyIdentifierLength) {
+      throw Decoding_Error(
+         fmt("SubjectKeyIdentifier length {} exceeds limit of {} bytes", m_key_id.size(), MaximumKeyIdentifierLength));
+   }
 }
 
 /*
@@ -494,12 +504,24 @@ void Authority_Key_ID::decode_inner(const std::vector<uint8_t>& in) {
    *    authorityCertIssuer       [1] GeneralNames            OPTIONAL,
    *    authorityCertSerialNumber [2] CertificateSerialNumber OPTIONAL }
    */
-   BER_Decoder(in, BER_Decoder::Limits::DER())
-      .start_sequence()
-      .decode_optional_string(m_key_id, ASN1_Type::OctetString, 0)
-      .discard_remaining()
-      .end_cons()
-      .verify_end();
+   BER_Decoder ber(in, BER_Decoder::Limits::DER());
+   BER_Decoder seq = ber.start_sequence();
+
+   const bool key_id_present = seq.peek_next_object().is_a(0, ASN1_Class::ContextSpecific);
+
+   seq.decode_optional_string(m_key_id, ASN1_Type::OctetString, 0).discard_remaining().end_cons();
+   ber.verify_end();
+
+   if(key_id_present) {
+      if(m_key_id.empty()) {
+         throw Decoding_Error("AuthorityKeyIdentifier keyIdentifier must not be empty");
+      }
+      if(m_key_id.size() > MaximumKeyIdentifierLength) {
+         throw Decoding_Error(fmt("AuthorityKeyIdentifier keyIdentifier length {} exceeds limit of {} bytes",
+                                  m_key_id.size(),
+                                  MaximumKeyIdentifierLength));
+      }
+   }
 }
 
 /*
