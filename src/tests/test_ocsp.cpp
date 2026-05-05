@@ -58,6 +58,31 @@ class OCSP_Tests final : public Test {
          return result;
       }
 
+      static Test::Result test_response_with_bykey_responder_id() {
+         // RFC 6960's ASN.1 module is "DEFINITIONS EXPLICIT TAGS" and ResponderID's
+         // CHOICE alternatives are not marked IMPLICIT, so byKey is encoded as
+         // constructed [2] wrapping a primitive OCTET STRING. The data below
+         // was produced using `openssl ocsp ... -resp_key_id`
+         Test::Result result("OCSP response with byKey ResponderID");
+
+         const Botan::OCSP::Response resp(Test::read_binary_data_file("x509/ocsp/byKey_responderID.der"));
+         result.test_enum_eq(
+            "Successful response status", resp.status(), Botan::OCSP::Response_Status_Code::Successful);
+
+         const auto responder = load_test_X509_cert("x509/ocsp/byKey_responder.pem");
+
+         result.test_is_true("byKey response has empty signer_name", resp.signer_name().empty());
+         result.test_sz_eq("byKey hash is 20 bytes (SHA-1)", resp.signer_key_hash().size(), 20);
+         result.test_bin_eq("byKey hash matches responder pubkey SHA-1",
+                            resp.signer_key_hash(),
+                            responder.subject_public_key_bitstring_sha1());
+
+         test_arb_eq(
+            result, "Responder is found via byKey", resp.find_signing_certificate(responder), std::optional(responder));
+
+         return result;
+      }
+
       static Test::Result test_response_certificate_access() {
          Test::Result result("OCSP response certificate access");
 
@@ -528,6 +553,7 @@ class OCSP_Tests final : public Test {
 
          results.push_back(test_request_encoding());
          results.push_back(test_response_parsing());
+         results.push_back(test_response_with_bykey_responder_id());
          results.push_back(test_response_certificate_access());
          results.push_back(test_response_find_signing_certificate());
          results.push_back(test_response_verification_with_next_update_without_max_age());
