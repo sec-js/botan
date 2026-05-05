@@ -834,11 +834,31 @@ std::vector<uint8_t> CRL_ReasonCode::encode_inner() const {
 * Decode the extension
 */
 void CRL_ReasonCode::decode_inner(const std::vector<uint8_t>& in) {
-   /* RFC 5280 Section 5.3.1 - CRLReason ::= ENUMERATED { ... } */
+   /*
+   * RFC 5280 Section 5.3.1
+   *
+   * CRLReason ::= ENUMERATED {
+   *      unspecified             (0),
+   *      keyCompromise           (1),
+   *      cACompromise            (2),
+   *      affiliationChanged      (3),
+   *      superseded              (4),
+   *      cessationOfOperation    (5),
+   *      certificateHold         (6),
+   *           -- value 7 is not used
+   *      removeFromCRL           (8),
+   *      privilegeWithdrawn      (9),
+   *      aACompromise           (10) }
+   */
    size_t reason_code = 0;
    BER_Decoder(in, BER_Decoder::Limits::DER())
       .decode(reason_code, ASN1_Type::Enumerated, ASN1_Class::Universal)
       .verify_end();
+
+   if(reason_code == 7 || reason_code > 10) {
+      throw Decoding_Error(fmt("CRLReason has unknown enumeration value {}", reason_code));
+   }
+
    m_reason = static_cast<CRL_Code>(reason_code);
 }
 
