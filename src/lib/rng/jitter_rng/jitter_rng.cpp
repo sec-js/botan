@@ -31,10 +31,14 @@ Jitter_RNG_Internal::Jitter_RNG_Internal() {
    static int result = jent_entropy_init_ex(oversampling_rate, flags);
 
    // no further details documented regarding the return value
-   BOTAN_ASSERT(result == 0, "JitterRNG: initialization successful");
+   if(result != 0) {
+      throw Internal_Error("Jitter_RNG_Internal initialization failed");
+   }
 
    m_rand_data = jent_entropy_collector_alloc(oversampling_rate, flags);
-   BOTAN_ASSERT_NONNULL(m_rand_data);
+   if(m_rand_data == nullptr) {
+      throw Internal_Error("Jitter_RNG_Internal collector allocation failed");
+   }
 }
 
 Jitter_RNG_Internal::~Jitter_RNG_Internal() {
