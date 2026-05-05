@@ -86,6 +86,8 @@ std::vector<T> unlock(const secure_vector<T>& in) {
    return std::vector<T>(in.begin(), in.end());
 }
 
+// TODO(Botan4) remove these += operators entirely
+
 template <typename T, typename Alloc, typename Alloc2>
 std::vector<T, Alloc>& operator+=(std::vector<T, Alloc>& out, const std::vector<T, Alloc2>& in) {
    out.insert(out.end(), in.begin(), in.end());
@@ -118,15 +120,37 @@ std::vector<T, Alloc>& operator+=(std::vector<T, Alloc>& out, const std::pair<T*
 
 /**
 * Zeroise the values; length remains unchanged
+*
+* Note this is not intended for cases where the compiler might elide
+* the writes as being without side-effects; use secure_scrub_memory
+* for that.
+*
+* TODO(Botan4): make these not-inlined and only for secure_vector, eg declare
+*  void zeroize(secure_vector<uint8_t>& v);
+*  void zeroize(secure_vector<uint16_t>& v);
+*  void zeroize(secure_vector<uint32_t>& v);
+*  void zeroize(secure_vector<uint64_t>& v);
+*
 * @param vec the vector to zeroise
 */
 template <typename T, typename Alloc>
 void zeroise(std::vector<T, Alloc>& vec) {
-   std::fill(vec.begin(), vec.end(), static_cast<T>(0));
+   for(size_t i = 0; i != vec.size(); ++i) {
+      vec[i] = static_cast<T>(0);
+   }
 }
 
 /**
 * Zeroise the values then free the memory
+*
+* TODO(Botan4): make these not-inlined and only for secure_vector, eg declare
+*  void zap(secure_vector<uint8_t>& v);
+*  void zap(secure_vector<uint16_t>& v);
+*  void zap(secure_vector<uint32_t>& v);
+*  void zap(secure_vector<uint64_t>& v);
+*
+* [And maybe rename as well]
+*
 * @param vec the vector to zeroise and free
 */
 template <typename T, typename Alloc>
