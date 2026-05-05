@@ -173,6 +173,55 @@ Test::Result test_asn1_ucs4_parsing() {
    return result;
 }
 
+Test::Result test_asn1_ucs_invalid_codepoint_rejection() {
+   Test::Result result("ASN.1 UCS-2/UCS-4 invalid codepoint rejection");
+
+   auto expect_decode_throws = [&](const char* what, const std::vector<uint8_t>& wire) {
+      result.test_throws(what, [&]() {
+         Botan::DataSource_Memory input(wire.data(), wire.size());
+         Botan::BER_Decoder dec(input);
+         Botan::ASN1_String str;
+         str.decode_from(dec);
+      });
+   };
+
+   auto expect_decode_ok = [&](const char* what, const std::vector<uint8_t>& wire) {
+      try {
+         Botan::DataSource_Memory input(wire.data(), wire.size());
+         Botan::BER_Decoder dec(input);
+         Botan::ASN1_String str;
+         str.decode_from(dec);
+         result.test_success(what);
+      } catch(const std::exception& ex) {
+         result.test_failure(Botan::fmt("{}: unexpected throw: {}", what, ex.what()));
+      }
+   };
+
+   // UniversalString (tag 0x1C) with codepoint 0x00110000 - one past Unicode max
+   expect_decode_throws("UniversalString rejects codepoint > 0x10FFFF", {0x1C, 0x04, 0x00, 0x11, 0x00, 0x00});
+
+   // UniversalString with codepoint 0xFFFFFFFF (clearly out of range)
+   expect_decode_throws("UniversalString rejects codepoint 0xFFFFFFFF", {0x1C, 0x04, 0xFF, 0xFF, 0xFF, 0xFF});
+
+   // UniversalString with high surrogate 0xD800
+   expect_decode_throws("UniversalString rejects surrogate codepoint", {0x1C, 0x04, 0x00, 0x00, 0xD8, 0x00});
+
+   // UniversalString boundary case: 0x10FFFF is the highest valid codepoint
+   expect_decode_ok("UniversalString accepts codepoint 0x10FFFF", {0x1C, 0x04, 0x00, 0x10, 0xFF, 0xFF});
+
+   // BmpString (tag 0x1E) with high surrogate
+   expect_decode_throws("BmpString rejects surrogate codepoint", {0x1E, 0x02, 0xD8, 0x00});
+
+   // BmpString with odd length is malformed
+   expect_decode_throws("BmpString rejects odd-length payload", {0x1E, 0x03, 0x00, 0x41, 0x00});
+
+   // UniversalString with non-multiple-of-4 length is malformed
+   expect_decode_throws("UniversalString rejects non-multiple-of-4 payload",
+                        {0x1C, 0x05, 0x00, 0x00, 0x00, 0x41, 0x00});
+
+   return result;
+}
+
 Test::Result test_asn1_ascii_encoding() {
    Test::Result result("ASN.1 ASCII encoding");
 
@@ -410,6 +459,7 @@ class ASN1_Tests final : public Test {
          results.push_back(test_asn1_utf8_parsing());
          results.push_back(test_asn1_ucs2_parsing());
          results.push_back(test_asn1_ucs4_parsing());
+         results.push_back(test_asn1_ucs_invalid_codepoint_rejection());
          results.push_back(test_asn1_ascii_encoding());
          results.push_back(test_asn1_utf8_encoding());
          results.push_back(test_asn1_tag_underlying_type());
