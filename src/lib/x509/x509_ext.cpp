@@ -510,16 +510,24 @@ std::vector<uint8_t> Issuer_Alternative_Name::encode_inner() const {
 * Decode the extension
 */
 void Subject_Alternative_Name::decode_inner(const std::vector<uint8_t>& in) {
-   /* RFC 5280 Section 4.2.1.6 - SubjectAltName ::= GeneralNames */
+   /* RFC 5280 Section 4.2.1.6 - SubjectAltName ::= GeneralNames
+   *  GeneralNames ::= SEQUENCE SIZE (1..MAX) OF GeneralName */
    BER_Decoder(in, BER_Decoder::Limits::DER()).decode(m_alt_name).verify_end();
+   if(!m_alt_name.has_items()) {
+      throw Decoding_Error("SubjectAlternativeName extension must contain at least one GeneralName");
+   }
 }
 
 /*
 * Decode the extension
 */
 void Issuer_Alternative_Name::decode_inner(const std::vector<uint8_t>& in) {
-   /* RFC 5280 Section 4.2.1.7 - IssuerAltName ::= GeneralNames */
+   /* RFC 5280 Section 4.2.1.7 - IssuerAltName ::= GeneralNames
+   *  GeneralNames ::= SEQUENCE SIZE (1..MAX) OF GeneralName */
    BER_Decoder(in, BER_Decoder::Limits::DER()).decode(m_alt_name).verify_end();
+   if(!m_alt_name.has_items()) {
+      throw Decoding_Error("IssuerAlternativeName extension must contain at least one GeneralName");
+   }
 }
 
 /*
@@ -537,6 +545,9 @@ std::vector<uint8_t> Extended_Key_Usage::encode_inner() const {
 void Extended_Key_Usage::decode_inner(const std::vector<uint8_t>& in) {
    /* RFC 5280 Section 4.2.1.12 - ExtKeyUsageSyntax ::= SEQUENCE SIZE (1..MAX) OF KeyPurposeId */
    BER_Decoder(in, BER_Decoder::Limits::DER()).decode_list(m_oids).verify_end();
+   if(m_oids.empty()) {
+      throw Decoding_Error("ExtendedKeyUsage extension must contain at least one KeyPurposeId");
+   }
 }
 
 /*
@@ -669,6 +680,9 @@ void Certificate_Policies::decode_inner(const std::vector<uint8_t>& in) {
    std::vector<Policy_Information> policies;
 
    BER_Decoder(in, BER_Decoder::Limits::DER()).decode_list(policies).verify_end();
+   if(policies.empty()) {
+      throw Decoding_Error("CertificatePolicies extension must contain at least one PolicyInformation");
+   }
    m_oids.clear();
    for(const auto& policy : policies) {
       m_oids.push_back(policy.oid());
@@ -728,6 +742,7 @@ void Authority_Information_Access::decode_inner(const std::vector<uint8_t>& in) 
    const OID ocsp_responder = OID::from_string("PKIX.OCSP");
    const OID ca_issuer = OID::from_string("PKIX.CertificateAuthorityIssuers");
 
+   size_t access_descriptions_seen = 0;
    while(ber.more_items()) {
       OID oid;
 
@@ -736,6 +751,8 @@ void Authority_Information_Access::decode_inner(const std::vector<uint8_t>& in) 
       info.decode(oid);
       const BER_Object name = info.get_next_object();
       info.end_cons();
+
+      access_descriptions_seen += 1;
 
       if(oid == ocsp_responder && name.is_a(6, ASN1_Class::ContextSpecific)) {
          m_ocsp_responders.push_back(ASN1::to_string(name));
@@ -746,6 +763,10 @@ void Authority_Information_Access::decode_inner(const std::vector<uint8_t>& in) 
 
    ber.end_cons();
    outer.verify_end();
+
+   if(access_descriptions_seen == 0) {
+      throw Decoding_Error("AuthorityInformationAccess extension must contain at least one AccessDescription");
+   }
 }
 
 /*
@@ -820,6 +841,10 @@ void CRL_Distribution_Points::decode_inner(const std::vector<uint8_t>& buf) {
    * CRLDistributionPoints ::= SEQUENCE SIZE (1..MAX) OF DistributionPoint
    */
    BER_Decoder(buf, BER_Decoder::Limits::DER()).decode_list(m_distribution_points).verify_end();
+
+   if(m_distribution_points.empty()) {
+      throw Decoding_Error("CRLDistributionPoints extension must contain at least one DistributionPoint");
+   }
 
    for(const auto& distribution_point : m_distribution_points) {
       for(const auto& uri : distribution_point.point().uris()) {
