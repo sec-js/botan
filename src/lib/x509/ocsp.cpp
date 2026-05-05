@@ -472,6 +472,13 @@ Certificate_Status_Code Response::status_for(const X509_Certificate& issuer,
       if(response.certid().is_id_for(issuer, subject)) {
          const X509_Time x509_ref_time(ref_time);
 
+         /*
+         * We check certificate status prior to checking expiration, since otherwise it's
+         * possible to take an OCSP response indicating revocation, wait for it to expire,
+         * and then staple it. If such a response was reported as "expired" rather than
+         * "revoked" it's easy to dismiss as a clock issue or other misconfiguration.
+         */
+
          if(response.cert_status() == 1) {
             return Certificate_Status_Code::CERT_IS_REVOKED;
          }
