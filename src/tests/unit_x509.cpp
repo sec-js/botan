@@ -1302,6 +1302,21 @@ Test::Result test_x509_uninit() {
    result.test_throws(
       "uninitialized crl access causes exception", "X509_CRL uninitialized", [&crl]() { crl.crl_number(); });
 
+   // X509_CRL constructed via the issuer-DN constructor leaves the inherited
+   // X509_Object signed-data null. The accessors must reject rather than UB.
+   const Botan::X509_DN issuer({{"X520.CommonName", "Test"}});
+   const Botan::X509_Time t(std::chrono::system_clock::now());
+   const Botan::X509_CRL synth_crl(issuer, t, t, std::vector<Botan::CRL_Entry>{});
+
+   result.test_throws("synth crl signature() throws", "X509_Object uninitialized", [&]() { synth_crl.signature(); });
+   result.test_throws(
+      "synth crl signed_body() throws", "X509_Object uninitialized", [&]() { synth_crl.signed_body(); });
+   result.test_throws("synth crl signature_algorithm() throws", "X509_Object uninitialized", [&]() {
+      synth_crl.signature_algorithm();
+   });
+   result.test_throws("synth crl tbs_data() throws", "X509_Object uninitialized", [&]() { synth_crl.tbs_data(); });
+   result.test_throws("synth crl BER_encode() throws", "X509_Object uninitialized", [&]() { synth_crl.BER_encode(); });
+
    return result;
 }
 
