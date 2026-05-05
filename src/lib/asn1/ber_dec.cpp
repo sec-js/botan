@@ -396,6 +396,7 @@ BER_Decoder& BER_Decoder::verify_end(std::string_view err) {
 * Discard all the bytes remaining in the source
 */
 BER_Decoder& BER_Decoder::discard_remaining() {
+   m_pushed = BER_Object();
    uint8_t buf = 0;
    while(m_source->read_byte(buf) != 0) {}
    return (*this);
@@ -524,7 +525,7 @@ BER_Decoder& BER_Decoder::end_cons() {
    if(m_parent == nullptr) {
       throw Invalid_State("BER_Decoder::end_cons called with null parent");
    }
-   if(!m_source->end_of_data()) {
+   if(!m_source->end_of_data() || m_pushed.is_set()) {
       throw Decoding_Error("BER_Decoder::end_cons called with data left");
    }
    return (*m_parent);
