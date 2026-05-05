@@ -889,7 +889,8 @@ void TNAuthList::Entry::decode_from(class BER_Decoder& ber) {
       m_type = TelephoneNumberRange;
       m_data = RangeContainer();
       auto& range_items = std::get<RangeContainer>(m_data);
-      BER_Decoder list = BER_Decoder(obj, ber.limits()).start_sequence();
+      BER_Decoder outer(obj, ber.limits());
+      BER_Decoder list = outer.start_sequence();
       while(list.more_items()) {
          TelephoneNumberRangeData entry;
 
