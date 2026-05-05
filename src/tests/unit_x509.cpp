@@ -248,6 +248,28 @@ Test::Result test_x509_extension() {
    return result;
 }
 
+Test::Result test_x509_extension_decode_duplicate() {
+   Test::Result result("X509 Extensions reject duplicate OID");
+
+   const auto oid_bc = Botan::OID::from_string("X509v3.BasicConstraints");
+   const std::vector<uint8_t> bc_bits = {0x30, 0x06, 0x01, 0x01, 0xFF, 0x02, 0x01, 0x00};
+
+   std::vector<uint8_t> der;
+   Botan::DER_Encoder enc(der);
+   enc.start_sequence();
+   for(size_t i = 0; i != 2; ++i) {
+      enc.start_sequence().encode(oid_bc).encode(bc_bits, Botan::ASN1_Type::OctetString).end_cons();
+   }
+   enc.end_cons();
+
+   Botan::Extensions extns;
+   Botan::BER_Decoder dec(der);
+   result.test_throws<Botan::Decoding_Error>("Duplicate extension OID is rejected at decode time",
+                                             [&]() { extns.decode_from(dec); });
+
+   return result;
+}
+
 Test::Result test_x509_dates() {
    Test::Result result("X509 Time");
 
@@ -1905,6 +1927,7 @@ class X509_Cert_Unit_Tests final : public Test {
 
          results.push_back(test_x509_encode_authority_info_access_extension());
          results.push_back(test_x509_extension());
+         results.push_back(test_x509_extension_decode_duplicate());
          results.push_back(test_x509_dates());
          results.push_back(test_cert_status_strings());
          results.push_back(test_x509_uninit());

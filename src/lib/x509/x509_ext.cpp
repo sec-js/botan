@@ -303,8 +303,12 @@ void Extensions::decode_from(BER_Decoder& from_source) {
       auto obj = create_extn_obj(oid, critical, bits);
       Extensions_Info info(critical, bits, std::move(obj));
 
+      // RFC 5280 4.2: "A certificate MUST NOT include more than one
+      // instance of a particular extension."
+      if(!m_extension_info.emplace(oid, info).second) {
+         throw Decoding_Error("Duplicate certificate extension encountered");
+      }
       m_extension_oids.push_back(oid);
-      m_extension_info.emplace(oid, info);
    }
    sequence.verify_end();
 }
