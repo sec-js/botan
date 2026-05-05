@@ -371,14 +371,19 @@ void GeneralSubtree::decode_from(BER_Decoder& ber) {
    *    name forms, thus, the minimum MUST be zero, and maximum MUST be absent.
    */
    size_t minimum = 0;
+   std::optional<size_t> maximum;
 
    ber.start_sequence()
       .decode(m_base)
       .decode_optional(minimum, ASN1_Type(0), ASN1_Class::ContextSpecific, size_t(0))
+      .decode_optional(maximum, ASN1_Type(1), ASN1_Class::ContextSpecific)
       .end_cons();
 
    if(minimum != 0) {
       throw Decoding_Error("GeneralSubtree minimum must be 0");
+   }
+   if(maximum.has_value()) {
+      throw Decoding_Error("GeneralSubtree maximum must be absent");
    }
 }
 
