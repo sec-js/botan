@@ -31,9 +31,10 @@ from enum import IntEnum
 
 # This Python module requires the FFI API version introduced in Botan 3.11.0
 #
+# 3.12.0 - EcScalar/EcPoint, DRBG
 # 3.11.0 - XOF API
 # 3.10.0 - introduced botan_pubkey_load_ec*_sec1()
-BOTAN_FFI_VERSION = 20260303
+BOTAN_FFI_VERSION = 20260506
 
 #
 # Base exception for all exceptions raised from this module
