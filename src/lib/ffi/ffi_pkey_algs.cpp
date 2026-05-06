@@ -842,6 +842,7 @@ int botan_ec_privkey_get_private_key(botan_privkey_t key, botan_ec_scalar_t* val
    if(Botan::any_null_pointers(value)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
+#if defined(BOTAN_HAS_ECC_KEY)
    return ffi_guard_thunk(__func__, [=]() -> int {
       const Botan::EC_PrivateKey* ec_key = dynamic_cast<const Botan::EC_PrivateKey*>(&safe_get(key));
       if(ec_key == nullptr) {
@@ -849,6 +850,10 @@ int botan_ec_privkey_get_private_key(botan_privkey_t key, botan_ec_scalar_t* val
       }
       return ffi_new_object(value, std::make_unique<Botan::EC_Scalar>(ec_key->_private_key()));
    });
+#else
+   BOTAN_UNUSED(key, value);
+   return BOTAN_FFI_ERROR_NOT_IMPLEMENTED;
+#endif
 }
 
 int botan_ec_privkey_get_group(botan_privkey_t key, botan_ec_group_t* ec_group) {
@@ -856,6 +861,7 @@ int botan_ec_privkey_get_group(botan_privkey_t key, botan_ec_group_t* ec_group) 
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
+#if defined(BOTAN_HAS_ECC_KEY)
    return ffi_guard_thunk(__func__, [=]() -> int {
       const Botan::EC_PrivateKey* ec_key = dynamic_cast<const Botan::EC_PrivateKey*>(&safe_get(key));
       if(ec_key == nullptr) {
@@ -863,12 +869,17 @@ int botan_ec_privkey_get_group(botan_privkey_t key, botan_ec_group_t* ec_group) 
       }
       return ffi_new_object(ec_group, std::make_unique<Botan::EC_Group>(ec_key->domain()));
    });
+#else
+   BOTAN_UNUSED(key, ec_group);
+   return BOTAN_FFI_ERROR_NOT_IMPLEMENTED;
+#endif
 }
 
 int botan_ec_pubkey_get_group(botan_pubkey_t key, botan_ec_group_t* ec_group) {
    if(Botan::any_null_pointers(ec_group)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
+#if defined(BOTAN_HAS_ECC_KEY)
    return ffi_guard_thunk(__func__, [=]() -> int {
       const Botan::EC_PublicKey* ec_key = dynamic_cast<const Botan::EC_PublicKey*>(&safe_get(key));
       if(ec_key == nullptr) {
@@ -876,6 +887,10 @@ int botan_ec_pubkey_get_group(botan_pubkey_t key, botan_ec_group_t* ec_group) {
       }
       return ffi_new_object(ec_group, std::make_unique<Botan::EC_Group>(ec_key->domain()));
    });
+#else
+   BOTAN_UNUSED(key, ec_group);
+   return BOTAN_FFI_ERROR_NOT_IMPLEMENTED;
+#endif
 }
 
 /* Ed25519 specific operations */

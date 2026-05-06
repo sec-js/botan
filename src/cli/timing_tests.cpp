@@ -121,8 +121,10 @@ class Timing_Test {
 
 #if defined(BOTAN_HAS_CHACHA_RNG)
          m_rng = std::make_unique<Botan::ChaCha_RNG>(std::vector<uint8_t>(64, 0));
-#else
+#elif defined(BOTAN_HAS_SYSTEM_RNG)
          m_rng = std::make_unique<Botan::System_RNG>();
+#else
+         throw Botan::Not_Implemented("Missing RNG for timing_test");
 #endif
       }
 
