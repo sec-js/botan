@@ -93,7 +93,7 @@ class XMSS_Keygen_Tests final : public PK_Key_Generation_Test {
                                                              std::span<const uint8_t> raw_pk) const override {
          Botan::BufferSlicer s(raw_pk);
          const auto oid = Botan::XMSS_Parameters::xmss_algorithm_t(Botan::load_be(s.take<4>()));
-         const auto p = Botan::XMSS_Parameters(oid);
+         const auto p = Botan::XMSS_Parameters::from_id(oid);
          auto root = s.copy_as_secure_vector(p.element_size());
          auto public_seed = s.copy_as_secure_vector(p.element_size());
 
@@ -134,7 +134,7 @@ class XMSS_Keygen_Reference_Test final : public Text_Based_Test {
 
       bool skip_this_test(const std::string& /*header*/, const VarMap& vars) override {
          const std::string param_str = vars.get_req_str("Params");
-         const auto params = Botan::XMSS_Parameters(param_str);
+         const auto params = Botan::XMSS_Parameters::from_name(param_str);
          const bool hash_available = Botan::HashFunction::create(params.hash_function_name()) != nullptr;
          const bool fast_params = param_str == "XMSS-SHA2_10_256";
          return !(hash_available && (fast_params || Test::run_long_tests()));

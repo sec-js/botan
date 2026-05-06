@@ -61,8 +61,8 @@ class XMSS_PrivateKey_Internal {
       XMSS_PrivateKey_Internal(XMSS_Parameters::xmss_algorithm_t xmss_algo_id,
                                WOTS_Derivation_Method wots_derivation_method,
                                RandomNumberGenerator& rng) :
-            m_xmss_params(xmss_algo_id),
-            m_wots_params(m_xmss_params.ots_oid()),
+            m_xmss_params(XMSS_Parameters::from_id(xmss_algo_id)),
+            m_wots_params(m_xmss_params.wots_parameters()),
             m_wots_derivation_method(wots_derivation_method),
             m_prf(rng.random_vec(m_xmss_params.element_size())),
             m_private_seed(rng.random_vec(m_xmss_params.element_size())),
@@ -72,15 +72,17 @@ class XMSS_PrivateKey_Internal {
                                WOTS_Derivation_Method wots_derivation_method,
                                secure_vector<uint8_t> private_seed,
                                secure_vector<uint8_t> prf) :
-            m_xmss_params(xmss_algo_id),
-            m_wots_params(m_xmss_params.ots_oid()),
+            m_xmss_params(XMSS_Parameters::from_id(xmss_algo_id)),
+            m_wots_params(m_xmss_params.wots_parameters()),
             m_wots_derivation_method(wots_derivation_method),
             m_prf(std::move(prf)),
             m_private_seed(std::move(private_seed)),
             m_keyid(Stateful_Key_Index_Registry::KeyId("XMSS", m_xmss_params.oid(), m_private_seed, m_prf)) {}
 
       XMSS_PrivateKey_Internal(XMSS_Parameters::xmss_algorithm_t xmss_algo_id, std::span<const uint8_t> key_bits) :
-            m_xmss_params(xmss_algo_id), m_wots_params(m_xmss_params.ots_oid()), m_keyid(/* initialized later*/) {
+            m_xmss_params(XMSS_Parameters::from_id(xmss_algo_id)),
+            m_wots_params(m_xmss_params.wots_parameters()),
+            m_keyid(/* initialized later*/) {
          /*
          The code requires sizeof(size_t) >= ceil(tree_height / 8)
 

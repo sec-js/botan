@@ -51,7 +51,7 @@ std::vector<uint8_t> extract_raw_public_key(std::span<const uint8_t> key_bits) {
       // Smoke check the decoded key. Valid raw keys might be decodable as BER
       // and they might be either a sole public key or a concatenation of public
       // and private key (with the optional WOTS+ derivation identifier).
-      const XMSS_Parameters params(deserialize_xmss_oid(raw_key));
+      const XMSS_Parameters params = XMSS_Parameters::from_id(deserialize_xmss_oid(raw_key));
       if(raw_key.size() != params.raw_public_key_size() && raw_key.size() != params.raw_private_key_size() &&
          raw_key.size() != params.raw_legacy_private_key_size()) {
          throw Decoding_Error("unpacked XMSS key does not have the correct length");
@@ -69,11 +69,11 @@ std::vector<uint8_t> extract_raw_public_key(std::span<const uint8_t> key_bits) {
 
 class XMSS_PublicKey_Internal {
    public:
-      XMSS_PublicKey_Internal(XMSS_Parameters::xmss_algorithm_t xmss_oid,
+      XMSS_PublicKey_Internal(const XMSS_Parameters& params,
                               secure_vector<uint8_t> root,
                               secure_vector<uint8_t> public_seed) :
-            m_xmss_params(xmss_oid),
-            m_wots_params(m_xmss_params.ots_oid()),
+            m_xmss_params(params),
+            m_wots_params(m_xmss_params.wots_parameters()),
             m_root(std::move(root)),
             m_public_seed(std::move(public_seed)) {}
 
@@ -100,15 +100,15 @@ class XMSS_PublicKey_Internal {
 };
 
 XMSS_PublicKey::XMSS_PublicKey(XMSS_Parameters::xmss_algorithm_t xmss_oid, RandomNumberGenerator& rng) {
-   const XMSS_Parameters params(xmss_oid);
+   const auto params = XMSS_Parameters::from_id(xmss_oid);
    m_public_key = std::make_shared<XMSS_PublicKey_Internal>(
-      xmss_oid, secure_vector<uint8_t>(params.element_size()), rng.random_vec(params.element_size()));
+      params, secure_vector<uint8_t>(params.element_size()), rng.random_vec(params.element_size()));
 }
 
 XMSS_PublicKey::XMSS_PublicKey(std::span<const uint8_t> key_bits) {
    const auto raw_key = extract_raw_public_key(key_bits);
    const auto xmss_oid = deserialize_xmss_oid(raw_key);
-   const XMSS_Parameters params(xmss_oid);
+   const auto params = XMSS_Parameters::from_id(xmss_oid);
    if(raw_key.size() < params.raw_public_key_size()) {
       throw Decoding_Error("Invalid XMSS public key size detected");
    }
@@ -119,16 +119,16 @@ XMSS_PublicKey::XMSS_PublicKey(std::span<const uint8_t> key_bits) {
    auto root = s.copy_as_secure_vector(params.element_size());
    auto public_seed = s.copy_as_secure_vector(params.element_size());
 
-   m_public_key = std::make_shared<XMSS_PublicKey_Internal>(xmss_oid, std::move(root), std::move(public_seed));
+   m_public_key = std::make_shared<XMSS_PublicKey_Internal>(params, std::move(root), std::move(public_seed));
 }
 
 XMSS_PublicKey::XMSS_PublicKey(XMSS_Parameters::xmss_algorithm_t xmss_oid,
                                secure_vector<uint8_t> root,
                                secure_vector<uint8_t> public_seed) {
-   const XMSS_Parameters params(xmss_oid);
+   const auto params = XMSS_Parameters::from_id(xmss_oid);
    BOTAN_ARG_CHECK(root.size() == params.element_size(), "XMSS: unexpected byte length of root hash");
    BOTAN_ARG_CHECK(public_seed.size() == params.element_size(), "XMSS: unexpected byte length of public seed");
-   m_public_key = std::make_shared<XMSS_PublicKey_Internal>(xmss_oid, std::move(root), std::move(public_seed));
+   m_public_key = std::make_shared<XMSS_PublicKey_Internal>(params, std::move(root), std::move(public_seed));
 }
 
 const secure_vector<uint8_t>& XMSS_PublicKey::public_seed() const {
