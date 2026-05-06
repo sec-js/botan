@@ -41,7 +41,7 @@ namespace {
 
 #if defined(BOTAN_HAS_X509_CERTIFICATES) && defined(BOTAN_TARGET_OS_HAS_FILESYSTEM)
 
-std::map<std::string, std::string> read_results(const std::string& results_file, const char delim = ':') {
+[[maybe_unused]] std::map<std::string, std::string> read_results(const std::string& results_file, const char delim = ':') {
    std::ifstream in(results_file);
    if(!in.good()) {
       throw Test_Error("Failed reading " + results_file);
@@ -69,6 +69,8 @@ std::map<std::string, std::string> read_results(const std::string& results_file,
 
    return m;
 }
+
+   #if defined(BOTAN_HAS_RSA) && defined(BOTAN_HAS_EMSA_PKCS1)
 
 std::vector<Botan::X509_Certificate> load_cert_file(const std::string& filename) {
    Botan::DataSource_Stream in(filename);
@@ -116,8 +118,6 @@ std::vector<Botan::Path_Validation_Restrictions> restrictions_to_test(bool req_r
       get_allow_non_self_signed_anchors_restrictions(req_revocation_info, ocsp_all_intermediates));
    return restrictions;
 }
-
-   #if defined(BOTAN_HAS_RSA) && defined(BOTAN_HAS_EMSA_PKCS1)
 
 class X509test_Path_Validation_Tests final : public Test {
    public:
