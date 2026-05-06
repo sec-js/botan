@@ -6,13 +6,28 @@ Version 3.12.0, Not Yet Released
 
 * Optimize and improve certificate store search operations (GH #5510)
 
+* Require strict DER when decoding PKIX types such as certificates (#5521)
+
+* Discard TLS handshake state once the handshake has completed, retaining
+  only the data needed for the active connection (GH #5517)
+
+* Various TLS conformance, hardening, and performance fixes. (GH #5550
+  #5551 #5568 #5555)
+
+* Various X509/PKIX/OCSP optimizations and bug fixes (GH #5535 #5536 #5546 #5554
+  #5561 #5562 #5569)
+
 * Skip OCSP/CRL revocation checks on certificate chains which were already
   going to be rejected due to path validation errors (GH #5512)
 
 * Add ``BER_Decoder::Limits`` which allows controlling what DER/BER syntax is
   accepted while decoding. (GH #5507 #5514)
 
-* Add ``BigInt::signum`` to simplify sign comparisons (GH #5519)
+* Add support for IPv6 name constraints in X.509 certificate path validation,
+  and add IPv6 address parsing and formatting utilities (GH #5534 #5537)
+
+* Refactor the Windows system certificate store and add a cache of materialized
+  certificates to avoid repeated parsing. (GH #5539)
 
 * Improve handling of unknown X.509 certificate extensions (GH #5518)
 
@@ -24,7 +39,8 @@ Version 3.12.0, Not Yet Released
 
 * Change ``X509_Object`` to share immutable state between copies (GH #5504)
 
-* Require strict DER when decoding PKIX types such as certificates (GH #5521)
+* Fix bugs in handling of indefinite length BER data, including missing
+  EOC markers being silently accepted (GH #5545)
 
 * Make certificate path building DFS incremental (GH #5513 #5520 #5521)
 
@@ -35,19 +51,28 @@ Version 3.12.0, Not Yet Released
 
 * Avoid truncation of large handshake messages in DTLS (GH #5522)
 
+* Add ALPN support to the Boost ASIO TLS stream (GH #5428)
+
 * Upgrade TLS-Anvil and add client-side TLS-Anvil testing (GH #5503)
 
-* Upgrade BoGo tests (GH #5523)
+* Upgrade BoGo tests (GH #5523 #5556)
 
-* Optimize ``host_wildcard_match`` (GH #5535)
+* Add a script for running the NIST ACVP test vectors (GH #5527)
 
-* Add EC scalar and point operations to the C89/FFI interface (GH #5404)
+* Add ``BigInt::signum`` to simplify sign comparisons (GH #5519)
 
-* Add DRBG helpers to the C89/FFI interface and Python binding
+* Fixes for compiling with GCC 16 (GH #5564)
+
+* Add DRBG helpers to the C89/FFI interface and Python binding (GH #5527)
+
+* Add EC scalar and point operations to the C89/FFI interface (GH #5404 #5565)
 
 * Add NIST key wrap with padding to the Python binding (GH #5521)
 
 * Enforce maximum input length limits for ChaCha20Poly1305 and GHASH/GCM (GH #5521)
+
+* Add ``configure.py --without-include-namespace`` to allow installing
+  headers without the ``botan-3/`` subdirectory (GH #5528)
 
 Version 3.11.1, 2026-03-31
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
