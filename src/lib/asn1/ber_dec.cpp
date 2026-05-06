@@ -133,11 +133,11 @@ BerDecodedLength decode_length(DataSource* ber, size_t allow_indef, bool der_mod
    }
 
    const size_t num_length_bytes = (b & 0x7F);
-
-   const size_t field_size = 1 + num_length_bytes;
-   if(field_size > 5) {
+   if(num_length_bytes > 4) {
       throw BER_Decoding_Error("Length field is too large");
    }
+
+   const size_t field_size = 1 + num_length_bytes;
 
    if(num_length_bytes == 0) {
       if(der_mode) {
@@ -164,9 +164,7 @@ BerDecodedLength decode_length(DataSource* ber, size_t allow_indef, bool der_mod
       if(ber->read_byte(b) == 0) {
          throw BER_Decoding_Error("Corrupted length field");
       }
-      if(get_byte<0>(length) != 0) {
-         throw BER_Decoding_Error("Field length overflow");
-      }
+      // Can't overflow since we already checked that num_length_bytes <= 4
       length = (length << 8) | b;
    }
 
@@ -398,6 +396,7 @@ BER_Decoder& BER_Decoder::verify_end(std::string_view err) {
 * Discard all the bytes remaining in the source
 */
 BER_Decoder& BER_Decoder::discard_remaining() {
+   m_pushed = BER_Object();
    uint8_t buf = 0;
    while(m_source->read_byte(buf) != 0) {}
    return (*this);
@@ -526,7 +525,7 @@ BER_Decoder& BER_Decoder::end_cons() {
    if(m_parent == nullptr) {
       throw Invalid_State("BER_Decoder::end_cons called with null parent");
    }
-   if(!m_source->end_of_data()) {
+   if(!m_source->end_of_data() || m_pushed.is_set()) {
       throw Decoding_Error("BER_Decoder::end_cons called with data left");
    }
    return (*m_parent);
@@ -549,15 +548,6 @@ BER_Decoder::BER_Decoder(DataSource& src, Limits limits) : m_limits(limits), m_s
 BER_Decoder::BER_Decoder(std::span<const uint8_t> buf, Limits limits) : m_limits(limits) {
    m_data_src = std::make_unique<DataSource_Memory>(buf);
    m_source = m_data_src.get();
-}
-
-/*
-* BER_Decoder Copy Constructor
-*/
-BER_Decoder::BER_Decoder(const BER_Decoder& other) :
-      m_limits(other.m_limits), m_parent(other.m_parent), m_source(other.m_source) {
-   // take ownership of other's data source
-   std::swap(m_data_src, other.m_data_src);
 }
 
 BER_Decoder::BER_Decoder(BER_Decoder&& other) noexcept = default;

@@ -37,7 +37,7 @@ ext_01$Encountered extension in certificate with version that does not allow it
 ext_02$Encountered extension in certificate with version that does not allow it
 ext_03$Verified
 ext_04$Unknown critical extension encountered
-ext_05$Duplicate certificate extension encountered
+ext_05$CERTIFICATE decoding failed with Duplicate certificate extension encountered
 ext_06$CA certificate not allowed to issue certs
 ext_07$CA certificate not allowed to issue certs
 ext_08$Certificate chain too long

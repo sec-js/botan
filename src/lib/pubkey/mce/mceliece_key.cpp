@@ -206,13 +206,9 @@ McEliece_PrivateKey::McEliece_PrivateKey(std::span<const uint8_t> key_bits) {
    size_t t = 0;
    secure_vector<uint8_t> enc_g;
    BER_Decoder dec_base(key_bits, BER_Decoder::Limits::DER());
-   BER_Decoder dec = dec_base.start_sequence()
-                        .start_sequence()
-                        .decode(n)
-                        .decode(t)
-                        .end_cons()
-                        .decode(m_public_matrix, ASN1_Type::OctetString)
-                        .decode(enc_g, ASN1_Type::OctetString);
+   BER_Decoder dec = dec_base.start_sequence();
+   dec.start_sequence().decode(n).decode(t).end_cons();
+   dec.decode(m_public_matrix, ASN1_Type::OctetString).decode(enc_g, ASN1_Type::OctetString);
 
    if(t == 0 || n == 0) {
       throw Decoding_Error("invalid McEliece parameters");
@@ -266,7 +262,8 @@ McEliece_PrivateKey::McEliece_PrivateKey(std::span<const uint8_t> key_bits) {
       m_sqrtmod.push_back(polyn_gf2m(sqrt_enc, sp_field));
    }
    secure_vector<uint8_t> enc_support;
-   BER_Decoder dec3 = dec2.end_cons().decode(enc_support, ASN1_Type::OctetString);
+   dec2.end_cons();
+   dec.decode(enc_support, ASN1_Type::OctetString);
    if(enc_support.size() % 2 != 0) {
       throw Decoding_Error("encoded support has odd length");
    }
@@ -278,7 +275,7 @@ McEliece_PrivateKey::McEliece_PrivateKey(std::span<const uint8_t> key_bits) {
       m_Linv.push_back(el);
    }
    secure_vector<uint8_t> enc_H;
-   dec3.decode(enc_H, ASN1_Type::OctetString).end_cons().verify_end();
+   dec.decode(enc_H, ASN1_Type::OctetString).end_cons().verify_end();
    if(enc_H.size() % 4 != 0) {
       throw Decoding_Error("encoded parity check matrix has length which is not a multiple of four");
    }

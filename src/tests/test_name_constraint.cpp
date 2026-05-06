@@ -102,6 +102,47 @@ class Name_Constraint_Excluded_CN_Case_Test final : public Test {
 
 BOTAN_REGISTER_TEST("x509", "x509_name_constraint_excluded_cn_case", Name_Constraint_Excluded_CN_Case_Test);
 
+class Name_Constraint_Empty_Subject_Test final : public Test {
+   public:
+      std::vector<Test::Result> run() override {
+         /*
+         - `root.pem`:
+              Self-signed CA, `O=Acme NC Root, C=US`
+         - `intermediate.pem`:
+              CA signed by root, `O=Acme NC Intermediate, C=US`, critical `nameConstraints` with
+              `permittedSubtrees: [directoryName=O=Acme, C=US]`
+         - `leaf.pem`:
+              End-entity signed by the intermediate, empty subject DN and critical SAN
+              `directoryName=CN=server, O=Acme, C=US`
+         */
+         Test::Result result("X509v3 Name Constraints: empty subject + SAN directoryName inside permittedSubtrees");
+
+         const Botan::X509_Certificate root(Test::data_file("x509/name_constraint_empty_subject/root.pem"));
+         const Botan::X509_Certificate intermediate(
+            Test::data_file("x509/name_constraint_empty_subject/intermediate.pem"));
+         const Botan::X509_Certificate leaf(Test::data_file("x509/name_constraint_empty_subject/leaf.pem"));
+
+         result.test_is_true("Leaf subject DN is empty", leaf.subject_dn().empty());
+         result.test_sz_eq("Leaf SAN has one directoryName entry", leaf.subject_alt_name().directory_names().size(), 1);
+
+         Botan::Certificate_Store_In_Memory trusted;
+         trusted.add_certificate(root);
+
+         const std::vector<Botan::X509_Certificate> chain{leaf, intermediate};
+         const Botan::Path_Validation_Restrictions restrictions(false, 80);
+         const auto validation_time = Botan::calendar_point(2027, 1, 1, 0, 0, 0).to_std_timepoint();
+
+         const auto path_result = Botan::x509_path_validate(
+            chain, restrictions, trusted, "", Botan::Usage_Type::UNSPECIFIED, validation_time);
+
+         result.test_str_eq("validation result", path_result.result_string(), "Verified");
+
+         return {result};
+      }
+};
+
+BOTAN_REGISTER_TEST("x509", "x509_name_constraint_empty_subject", Name_Constraint_Empty_Subject_Test);
+
 class Name_Constraint_IPv6_Chain_Tests final : public Test {
    public:
       std::vector<Test::Result> run() override {

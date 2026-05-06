@@ -111,6 +111,13 @@ elliptic curve points.
   elements are rarely if ever useful serialized into a protocol.  Support for
   encoding or decoding EC identity elements is deprecated and will be removed.
 
+
+ASN.1 Deprecations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Support for encoding or decoding TeletexString types is deprecated and will
+be removed in a future major release.
+
 Deprecated Modules
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

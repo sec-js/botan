@@ -13,7 +13,6 @@
 #include <botan/internal/fmt.h>
 #include <botan/internal/loadstor.h>
 #include <algorithm>
-#include <cctype>
 #include <limits>
 #include <sstream>
 
@@ -376,11 +375,12 @@ std::string ipv4_to_string(uint32_t ip) {
 }
 
 std::string tolower_string(std::string_view str) {
+   // Locale-independent ASCII fold; the only callers (DNS name canonicalization
+   // for SAN/name-constraints) work on ASCII strings per RFC 1035.
    std::string lower(str);
    for(char& c : lower) {
-      const int cu = static_cast<unsigned char>(c);
-      if(std::isalpha(cu) != 0) {
-         c = static_cast<char>(std::tolower(cu));
+      if(c >= 'A' && c <= 'Z') {
+         c = static_cast<char>(c + ('a' - 'A'));
       }
    }
    return lower;

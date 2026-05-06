@@ -573,10 +573,6 @@ CertificatePathStatusCodes PKIX::check_ocsp(const std::vector<X509_Certificate>&
       }
    }
 
-   while(!cert_status.empty() && cert_status.back().empty()) {
-      cert_status.pop_back();
-   }
-
    return cert_status;
 }
 
@@ -985,13 +981,39 @@ Path_Validation_Result x509_path_validate(const std::vector<X509_Certificate>& e
             ocsp_status = PKIX::check_ocsp(*cert_path, ocsp_resp, trusted_roots, ref_time, restrictions);
          }
 
-         if(ocsp_status.empty() && ocsp_timeout != std::chrono::milliseconds(0)) {
+         if(ocsp_timeout != std::chrono::milliseconds(0)) {
+            const size_t to_online = restrictions.ocsp_all_intermediates() ? (cert_path->size() - 1) : 1;
+            bool need_online = false;
+            for(size_t i = 0; i < to_online; ++i) {
+               if(i >= ocsp_status.size() || ocsp_status[i].empty()) {
+                  need_online = true;
+                  break;
+               }
+            }
+
+            if(need_online) {
 #if defined(BOTAN_TARGET_OS_HAS_THREADS) && defined(BOTAN_HAS_HTTP_UTIL)
-            ocsp_status = PKIX::check_ocsp_online(*cert_path, trusted_roots, ref_time, ocsp_timeout, restrictions);
+               auto online_status =
+                  PKIX::check_ocsp_online(*cert_path, trusted_roots, ref_time, ocsp_timeout, restrictions);
+               if(ocsp_status.size() < online_status.size()) {
+                  ocsp_status.resize(online_status.size());
+               }
+               for(size_t i = 0; i < online_status.size(); ++i) {
+                  if(ocsp_status[i].empty()) {
+                     ocsp_status[i] = std::move(online_status[i]);
+                  }
+               }
 #else
-            ocsp_status.resize(1);
-            ocsp_status[0].insert(Certificate_Status_Code::OCSP_NO_HTTP);
+               if(ocsp_status.size() < to_online) {
+                  ocsp_status.resize(to_online);
+               }
+               for(size_t i = 0; i < to_online; ++i) {
+                  if(ocsp_status[i].empty()) {
+                     ocsp_status[i].insert(Certificate_Status_Code::OCSP_NO_HTTP);
+                  }
+               }
 #endif
+            }
          }
 
          PKIX::merge_revocation_status(status, crl_status, ocsp_status, restrictions);

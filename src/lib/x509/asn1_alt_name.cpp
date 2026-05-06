@@ -101,6 +101,10 @@ std::multimap<std::string, std::string> AlternativeName::contents() const {
       names.emplace("IP", ipv4_to_string(ipv4));
    }
 
+   for(const auto& ipv6 : this->ipv6_address()) {
+      names.emplace("IPv6", ipv6.to_string());
+   }
+
    for(const auto& nm : this->directory_names()) {
       names.emplace("DN", nm.to_string());
    }

@@ -56,6 +56,27 @@ void X509_Object::load_data(DataSource& in) {
    }
 }
 
+const std::vector<uint8_t>& X509_Object::signature() const {
+   if(!m_signed_data) {
+      throw Invalid_State("X509_Object uninitialized");
+   }
+   return m_signed_data->m_sig;
+}
+
+const std::vector<uint8_t>& X509_Object::signed_body() const {
+   if(!m_signed_data) {
+      throw Invalid_State("X509_Object uninitialized");
+   }
+   return m_signed_data->m_tbs_bits;
+}
+
+const AlgorithmIdentifier& X509_Object::signature_algorithm() const {
+   if(!m_signed_data) {
+      throw Invalid_State("X509_Object uninitialized");
+   }
+   return m_signed_data->m_sig_algo;
+}
+
 void X509_Object::encode_into(DER_Encoder& to) const {
    to.start_sequence()
       .start_sequence()

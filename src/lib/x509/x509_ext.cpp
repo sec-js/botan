@@ -27,6 +27,8 @@ namespace Botan {
 
 namespace {
 
+constexpr size_t MaximumKeyIdentifierLength = 64;
+
 template <std::derived_from<Certificate_Extension> T>
 auto make_extension([[maybe_unused]] const OID& oid) {
    BOTAN_DEBUG_ASSERT(oid == T::static_oid());
@@ -133,7 +135,7 @@ std::unique_ptr<Certificate_Extension> Extensions::create_extn_obj(const OID& oi
       try {
          extn->decode_inner(body);
          return extn;
-      } catch(const Decoding_Error&) {
+      } catch(const Exception&) {
          // OID was recognized but contents failed to decode
          extn = std::make_unique<Cert_Extension::Unknown_Extension>(oid, critical, /*failed_to_decode=*/true);
       }
@@ -303,8 +305,12 @@ void Extensions::decode_from(BER_Decoder& from_source) {
       auto obj = create_extn_obj(oid, critical, bits);
       Extensions_Info info(critical, bits, std::move(obj));
 
+      // RFC 5280 4.2: "A certificate MUST NOT include more than one
+      // instance of a particular extension."
+      if(!m_extension_info.emplace(oid, info).second) {
+         throw Decoding_Error("Duplicate certificate extension encountered");
+      }
       m_extension_oids.push_back(oid);
-      m_extension_info.emplace(oid, info);
    }
    sequence.verify_end();
 }
@@ -366,6 +372,13 @@ void Basic_Constraints::decode_inner(const std::vector<uint8_t>& in) {
       .decode_optional(m_path_length_constraint, ASN1_Type::Integer, ASN1_Class::Universal)
       .end_cons()
       .verify_end();
+
+   /* RFC 5280 Section 4.2.1.9:
+   *  "CAs MUST NOT include the pathLenConstraint field unless the cA boolean
+   *  is asserted and the key usage extension asserts the keyCertSign bit" */
+   if(!m_is_ca && m_path_length_constraint.has_value()) {
+      throw Decoding_Error("BasicConstraints pathLenConstraint must not be present when cA is FALSE");
+   }
 }
 
 /*
@@ -414,6 +427,13 @@ void Key_Usage::decode_inner(const std::vector<uint8_t>& in) {
       }
    }();
 
+   /* RFC 5280 Section 4.2.1.3:
+   *  "When the keyUsage extension appears in a certificate, at least one of
+   *  the bits MUST be set to 1." */
+   if(usage == 0) {
+      throw Decoding_Error("KeyUsage extension must have at least one bit set");
+   }
+
    m_constraints = Key_Constraints(usage);
 }
 
@@ -432,6 +452,14 @@ std::vector<uint8_t> Subject_Key_ID::encode_inner() const {
 void Subject_Key_ID::decode_inner(const std::vector<uint8_t>& in) {
    /* RFC 5280 Section 4.2.1.2 - SubjectKeyIdentifier ::= KeyIdentifier */
    BER_Decoder(in, BER_Decoder::Limits::DER()).decode(m_key_id, ASN1_Type::OctetString).verify_end();
+
+   if(m_key_id.empty()) {
+      throw Decoding_Error("SubjectKeyIdentifier must not be empty");
+   }
+   if(m_key_id.size() > MaximumKeyIdentifierLength) {
+      throw Decoding_Error(
+         fmt("SubjectKeyIdentifier length {} exceeds limit of {} bytes", m_key_id.size(), MaximumKeyIdentifierLength));
+   }
 }
 
 /*
@@ -476,12 +504,24 @@ void Authority_Key_ID::decode_inner(const std::vector<uint8_t>& in) {
    *    authorityCertIssuer       [1] GeneralNames            OPTIONAL,
    *    authorityCertSerialNumber [2] CertificateSerialNumber OPTIONAL }
    */
-   BER_Decoder(in, BER_Decoder::Limits::DER())
-      .start_sequence()
-      .decode_optional_string(m_key_id, ASN1_Type::OctetString, 0)
-      .discard_remaining()
-      .end_cons()
-      .verify_end();
+   BER_Decoder ber(in, BER_Decoder::Limits::DER());
+   BER_Decoder seq = ber.start_sequence();
+
+   const bool key_id_present = seq.peek_next_object().is_a(0, ASN1_Class::ContextSpecific);
+
+   seq.decode_optional_string(m_key_id, ASN1_Type::OctetString, 0).discard_remaining().end_cons();
+   ber.verify_end();
+
+   if(key_id_present) {
+      if(m_key_id.empty()) {
+         throw Decoding_Error("AuthorityKeyIdentifier keyIdentifier must not be empty");
+      }
+      if(m_key_id.size() > MaximumKeyIdentifierLength) {
+         throw Decoding_Error(fmt("AuthorityKeyIdentifier keyIdentifier length {} exceeds limit of {} bytes",
+                                  m_key_id.size(),
+                                  MaximumKeyIdentifierLength));
+      }
+   }
 }
 
 /*
@@ -506,16 +546,24 @@ std::vector<uint8_t> Issuer_Alternative_Name::encode_inner() const {
 * Decode the extension
 */
 void Subject_Alternative_Name::decode_inner(const std::vector<uint8_t>& in) {
-   /* RFC 5280 Section 4.2.1.6 - SubjectAltName ::= GeneralNames */
+   /* RFC 5280 Section 4.2.1.6 - SubjectAltName ::= GeneralNames
+   *  GeneralNames ::= SEQUENCE SIZE (1..MAX) OF GeneralName */
    BER_Decoder(in, BER_Decoder::Limits::DER()).decode(m_alt_name).verify_end();
+   if(!m_alt_name.has_items()) {
+      throw Decoding_Error("SubjectAlternativeName extension must contain at least one GeneralName");
+   }
 }
 
 /*
 * Decode the extension
 */
 void Issuer_Alternative_Name::decode_inner(const std::vector<uint8_t>& in) {
-   /* RFC 5280 Section 4.2.1.7 - IssuerAltName ::= GeneralNames */
+   /* RFC 5280 Section 4.2.1.7 - IssuerAltName ::= GeneralNames
+   *  GeneralNames ::= SEQUENCE SIZE (1..MAX) OF GeneralName */
    BER_Decoder(in, BER_Decoder::Limits::DER()).decode(m_alt_name).verify_end();
+   if(!m_alt_name.has_items()) {
+      throw Decoding_Error("IssuerAlternativeName extension must contain at least one GeneralName");
+   }
 }
 
 /*
@@ -533,6 +581,9 @@ std::vector<uint8_t> Extended_Key_Usage::encode_inner() const {
 void Extended_Key_Usage::decode_inner(const std::vector<uint8_t>& in) {
    /* RFC 5280 Section 4.2.1.12 - ExtKeyUsageSyntax ::= SEQUENCE SIZE (1..MAX) OF KeyPurposeId */
    BER_Decoder(in, BER_Decoder::Limits::DER()).decode_list(m_oids).verify_end();
+   if(m_oids.empty()) {
+      throw Decoding_Error("ExtendedKeyUsage extension must contain at least one KeyPurposeId");
+   }
 }
 
 /*
@@ -665,6 +716,9 @@ void Certificate_Policies::decode_inner(const std::vector<uint8_t>& in) {
    std::vector<Policy_Information> policies;
 
    BER_Decoder(in, BER_Decoder::Limits::DER()).decode_list(policies).verify_end();
+   if(policies.empty()) {
+      throw Decoding_Error("CertificatePolicies extension must contain at least one PolicyInformation");
+   }
    m_oids.clear();
    for(const auto& policy : policies) {
       m_oids.push_back(policy.oid());
@@ -724,6 +778,7 @@ void Authority_Information_Access::decode_inner(const std::vector<uint8_t>& in) 
    const OID ocsp_responder = OID::from_string("PKIX.OCSP");
    const OID ca_issuer = OID::from_string("PKIX.CertificateAuthorityIssuers");
 
+   size_t access_descriptions_seen = 0;
    while(ber.more_items()) {
       OID oid;
 
@@ -732,6 +787,8 @@ void Authority_Information_Access::decode_inner(const std::vector<uint8_t>& in) 
       info.decode(oid);
       const BER_Object name = info.get_next_object();
       info.end_cons();
+
+      access_descriptions_seen += 1;
 
       if(oid == ocsp_responder && name.is_a(6, ASN1_Class::ContextSpecific)) {
          m_ocsp_responders.push_back(ASN1::to_string(name));
@@ -742,6 +799,10 @@ void Authority_Information_Access::decode_inner(const std::vector<uint8_t>& in) 
 
    ber.end_cons();
    outer.verify_end();
+
+   if(access_descriptions_seen == 0) {
+      throw Decoding_Error("AuthorityInformationAccess extension must contain at least one AccessDescription");
+   }
 }
 
 /*
@@ -795,11 +856,31 @@ std::vector<uint8_t> CRL_ReasonCode::encode_inner() const {
 * Decode the extension
 */
 void CRL_ReasonCode::decode_inner(const std::vector<uint8_t>& in) {
-   /* RFC 5280 Section 5.3.1 - CRLReason ::= ENUMERATED { ... } */
+   /*
+   * RFC 5280 Section 5.3.1
+   *
+   * CRLReason ::= ENUMERATED {
+   *      unspecified             (0),
+   *      keyCompromise           (1),
+   *      cACompromise            (2),
+   *      affiliationChanged      (3),
+   *      superseded              (4),
+   *      cessationOfOperation    (5),
+   *      certificateHold         (6),
+   *           -- value 7 is not used
+   *      removeFromCRL           (8),
+   *      privilegeWithdrawn      (9),
+   *      aACompromise           (10) }
+   */
    size_t reason_code = 0;
    BER_Decoder(in, BER_Decoder::Limits::DER())
       .decode(reason_code, ASN1_Type::Enumerated, ASN1_Class::Universal)
       .verify_end();
+
+   if(reason_code == 7 || reason_code > 10) {
+      throw Decoding_Error(fmt("CRLReason has unknown enumeration value {}", reason_code));
+   }
+
    m_reason = static_cast<CRL_Code>(reason_code);
 }
 
@@ -816,6 +897,10 @@ void CRL_Distribution_Points::decode_inner(const std::vector<uint8_t>& buf) {
    * CRLDistributionPoints ::= SEQUENCE SIZE (1..MAX) OF DistributionPoint
    */
    BER_Decoder(buf, BER_Decoder::Limits::DER()).decode_list(m_distribution_points).verify_end();
+
+   if(m_distribution_points.empty()) {
+      throw Decoding_Error("CRLDistributionPoints extension must contain at least one DistributionPoint");
+   }
 
    for(const auto& distribution_point : m_distribution_points) {
       for(const auto& uri : distribution_point.point().uris()) {
@@ -874,7 +959,7 @@ void TNAuthList::Entry::decode_from(class BER_Decoder& ber) {
       throw Decoding_Error(fmt("Unexpected TNEntry class tag {}", static_cast<uint32_t>(obj.get_class())));
    }
 
-   const uint32_t type_tag = static_cast<Type>(obj.type_tag());
+   const uint32_t type_tag = static_cast<uint32_t>(obj.type_tag());
 
    if(type_tag == ServiceProviderCode) {
       m_type = ServiceProviderCode;
@@ -885,7 +970,8 @@ void TNAuthList::Entry::decode_from(class BER_Decoder& ber) {
       m_type = TelephoneNumberRange;
       m_data = RangeContainer();
       auto& range_items = std::get<RangeContainer>(m_data);
-      BER_Decoder list = BER_Decoder(obj, ber.limits()).start_sequence();
+      BER_Decoder outer(obj, ber.limits());
+      BER_Decoder list = outer.start_sequence();
       while(list.more_items()) {
          TelephoneNumberRangeData entry;
 
@@ -1609,7 +1695,7 @@ void ASBlocks::ASIdentifiers::decode_from(Botan::BER_Decoder& from) {
    if(elem_type_tag == 0) {
       BER_Decoder as_obj_ber = BER_Decoder(elem_obj, seq_dec.limits());
       ASIdentifierChoice asnum;
-      as_obj_ber.decode(asnum);
+      as_obj_ber.decode(asnum).verify_end();
       m_asnum = asnum;
 
       const BER_Object rdi_obj = seq_dec.get_next_object();
@@ -1617,7 +1703,7 @@ void ASBlocks::ASIdentifiers::decode_from(Botan::BER_Decoder& from) {
       if(static_cast<uint32_t>(rdi_type_tag) == 1) {
          BER_Decoder rdi_obj_ber = BER_Decoder(rdi_obj, seq_dec.limits());
          ASIdentifierChoice rdi;
-         rdi_obj_ber.decode(rdi);
+         rdi_obj_ber.decode(rdi).verify_end();
          m_rdi = rdi;
       } else if(rdi_type_tag != ASN1_Type::NoObject) {
          throw Decoding_Error(fmt("Unexpected type for ASIdentifiers rdi: {}", static_cast<uint32_t>(rdi_type_tag)));
@@ -1628,7 +1714,7 @@ void ASBlocks::ASIdentifiers::decode_from(Botan::BER_Decoder& from) {
    if(elem_type_tag == 1) {
       BER_Decoder rdi_obj_ber = BER_Decoder(elem_obj, seq_dec.limits());
       ASIdentifierChoice rdi;
-      rdi_obj_ber.decode(rdi);
+      rdi_obj_ber.decode(rdi).verify_end();
       m_rdi = rdi;
       const BER_Object end = seq_dec.get_next_object();
       const ASN1_Type end_type_tag = end.type_tag();
@@ -1639,6 +1725,10 @@ void ASBlocks::ASIdentifiers::decode_from(Botan::BER_Decoder& from) {
    }
 
    seq_dec.end_cons();
+
+   if(!m_asnum.has_value() && !m_rdi.has_value()) {
+      throw Decoding_Error("Invalid encoding for ASIdentifiers");
+   }
 }
 
 void ASBlocks::ASIdentifierChoice::encode_into(Botan::DER_Encoder& into) const {
@@ -1657,6 +1747,7 @@ void ASBlocks::ASIdentifierChoice::decode_from(Botan::BER_Decoder& from) {
    const ASN1_Type next_tag = from.peek_next_object().type_tag();
 
    if(next_tag == ASN1_Type::Null) {
+      from.decode_null();
       m_as_ranges = std::nullopt;
    } else if(next_tag == ASN1_Type::Sequence) {
       std::vector<ASIdOrRange> as_ranges;
@@ -1709,9 +1800,15 @@ void ASBlocks::validate(const X509_Certificate& /* unused */,
    // the extension may not contain asnums or rdis, but one of them is always present
    const bool asnum_present = m_as_identifiers.asnum().has_value();
    const bool rdi_present = m_as_identifiers.rdi().has_value();
+
+   if(!asnum_present && !rdi_present) {
+      // Invalid, should have been caught during decoding
+      cert_status.at(pos).insert(Certificate_Status_Code::AS_BLOCKS_ERROR);
+      return;
+   }
+
    bool asnum_needs_check = asnum_present ? m_as_identifiers.asnum().value().ranges().has_value() : false;
    bool rdi_needs_check = rdi_present ? m_as_identifiers.rdi().value().ranges().has_value() : false;
-   BOTAN_ASSERT_NOMSG(asnum_present || rdi_present);
 
    // we are at the (trusted) root cert, there is no parent to verify against
    if(pos == cert_path.size() - 1) {

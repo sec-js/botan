@@ -200,6 +200,11 @@ std::unique_ptr<X509_Certificate_Data> parse_x509_cert_body(const X509_Object& o
    }
 
    if(const auto* ext = data->m_v3_extensions.get_extension_object_as<Cert_Extension::Basic_Constraints>()) {
+      /*
+      * RFC 5280 4.2.1.9 requires that conforming CAs "MUST mark the
+      * extension [basicConstraints] as critical in such certificates"
+      * but places no such requirement on validators.
+      */
       if(ext->is_ca() == true) {
          /*
          * RFC 5280 section 4.2.1.3 requires that CAs include KeyUsage in all
@@ -618,6 +623,12 @@ std::vector<std::string> get_cert_user_info(std::string_view req, const X509_DN&
       std::vector<std::string> ip_str;
       for(const uint32_t ipv4 : alt_name.ipv4_address()) {
          ip_str.push_back(ipv4_to_string(ipv4));
+      }
+      return ip_str;
+   } else if(req == "IPv6") {
+      std::vector<std::string> ip_str;
+      for(const auto& ipv6 : alt_name.ipv6_address()) {
+         ip_str.push_back(ipv6.to_string());
       }
       return ip_str;
    } else {

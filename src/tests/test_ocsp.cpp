@@ -58,6 +58,31 @@ class OCSP_Tests final : public Test {
          return result;
       }
 
+      static Test::Result test_response_with_bykey_responder_id() {
+         // RFC 6960's ASN.1 module is "DEFINITIONS EXPLICIT TAGS" and ResponderID's
+         // CHOICE alternatives are not marked IMPLICIT, so byKey is encoded as
+         // constructed [2] wrapping a primitive OCTET STRING. The data below
+         // was produced using `openssl ocsp ... -resp_key_id`
+         Test::Result result("OCSP response with byKey ResponderID");
+
+         const Botan::OCSP::Response resp(Test::read_binary_data_file("x509/ocsp/byKey_responderID.der"));
+         result.test_enum_eq(
+            "Successful response status", resp.status(), Botan::OCSP::Response_Status_Code::Successful);
+
+         const auto responder = load_test_X509_cert("x509/ocsp/byKey_responder.pem");
+
+         result.test_is_true("byKey response has empty signer_name", resp.signer_name().empty());
+         result.test_sz_eq("byKey hash is 20 bytes (SHA-1)", resp.signer_key_hash().size(), 20);
+         result.test_bin_eq("byKey hash matches responder pubkey SHA-1",
+                            resp.signer_key_hash(),
+                            responder.subject_public_key_bitstring_sha1());
+
+         test_arb_eq(
+            result, "Responder is found via byKey", resp.find_signing_certificate(responder), std::optional(responder));
+
+         return result;
+      }
+
       static Test::Result test_response_certificate_access() {
          Test::Result result("OCSP response certificate access");
 
@@ -186,7 +211,7 @@ class OCSP_Tests final : public Test {
             const auto ocsp_status = Botan::PKIX::check_ocsp(
                cert_path, {ocsp}, {&certstore}, valid_time, Botan::Path_Validation_Restrictions());
 
-            return result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 1) &&
+            return result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 2) &&
                    result.test_sz_eq("Expected size of ocsp_status[0]", ocsp_status[0].size(), 1) &&
                    result.test_is_true(std::string("Status: '") + Botan::to_string(expected) + "'",
                                        ocsp_status[0].contains(expected));
@@ -226,7 +251,7 @@ class OCSP_Tests final : public Test {
             const Botan::Path_Validation_Restrictions pvr(false, 110, false, max_age);
             const auto ocsp_status = Botan::PKIX::check_ocsp(cert_path, {ocsp}, {&certstore}, valid_time, pvr);
 
-            return result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 1) &&
+            return result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 2) &&
                    result.test_sz_eq("Expected size of ocsp_status[0]", ocsp_status[0].size(), 1) &&
                    result.test_is_true(std::string("Status: '") + Botan::to_string(expected) + "'",
                                        ocsp_status[0].contains(expected));
@@ -266,7 +291,7 @@ class OCSP_Tests final : public Test {
             const Botan::Path_Validation_Restrictions pvr(false, 110, false, max_age);
             const auto ocsp_status = Botan::PKIX::check_ocsp(cert_path, {ocsp}, {&certstore}, valid_time, pvr);
 
-            result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 1);
+            result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 2);
 
             if(!ocsp_status.empty()) {
                result.test_sz_eq("Expected size of ocsp_status[0]", ocsp_status[0].size(), 1);
@@ -305,7 +330,7 @@ class OCSP_Tests final : public Test {
             const auto ocsp_status = Botan::PKIX::check_ocsp(
                cert_path, {ocsp}, {&certstore}, valid_time, Botan::Path_Validation_Restrictions());
 
-            result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 1);
+            result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 2);
 
             if(!ocsp_status.empty()) {
                result.test_sz_eq("Expected size of ocsp_status[0]", ocsp_status[0].size(), 1);
@@ -343,7 +368,7 @@ class OCSP_Tests final : public Test {
          const auto ocsp_status =
             Botan::PKIX::check_ocsp(cert_path, {ocsp}, {&certstore}, valid_time, Botan::Path_Validation_Restrictions());
 
-         if(result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 1)) {
+         if(result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 2)) {
             if(result.test_sz_eq("Expected size of ocsp_status[0]", ocsp_status[0].size(), 1)) {
                result.test_sz_gt(
                   "Status warning", ocsp_status[0].count(Botan::Certificate_Status_Code::OCSP_NO_REVOCATION_URL), 0);
@@ -436,7 +461,7 @@ class OCSP_Tests final : public Test {
             const auto ocsp_status = Botan::PKIX::check_ocsp(
                cert_path, {ocsp}, {&certstore}, valid_time, Botan::Path_Validation_Restrictions());
 
-            if(result.test_sz_eq("Legitimate: expected result count", ocsp_status.size(), 1) &&
+            if(result.test_sz_eq("Legitimate: expected result count", ocsp_status.size(), 2) &&
                result.test_sz_eq("Legitimate: expected status count", ocsp_status[0].size(), 1)) {
                result.test_is_true("Legitimate response is accepted",
                                    ocsp_status[0].contains(Botan::Certificate_Status_Code::OCSP_RESPONSE_GOOD));
@@ -452,10 +477,56 @@ class OCSP_Tests final : public Test {
             const auto ocsp_status = Botan::PKIX::check_ocsp(
                cert_path, {forged_ocsp}, {&certstore}, valid_time, Botan::Path_Validation_Restrictions());
 
-            if(result.test_sz_eq("Forged: expected result count", ocsp_status.size(), 1) &&
+            if(result.test_sz_eq("Forged: expected result count", ocsp_status.size(), 2) &&
                result.test_sz_eq("Forged: expected status count", ocsp_status[0].size(), 1)) {
                result.test_is_true("Forged signature is rejected",
                                    ocsp_status[0].contains(Botan::Certificate_Status_Code::OCSP_SIGNATURE_ERROR));
+            }
+         }
+
+         return result;
+      }
+
+      static Test::Result test_partial_stapling_preserves_per_slot_gap() {
+         Test::Result result("OCSP partial stapling preserves per-slot gap for online fallback");
+
+         auto ee = load_test_X509_cert("x509/ocsp/mychain_ee.pem");
+         auto ca = load_test_X509_cert("x509/ocsp/mychain_int.pem");
+         auto trust_root = load_test_X509_cert("x509/ocsp/mychain_root.pem");
+
+         auto ocsp_for_ee = load_test_OCSP_resp("x509/ocsp/mychain_ocsp_for_ee.der");
+         auto ocsp_for_int = load_test_OCSP_resp("x509/ocsp/mychain_ocsp_for_int_self_signed.der");
+
+         Botan::Certificate_Store_In_Memory certstore;
+         certstore.add_certificate(trust_root);
+
+         const std::vector<Botan::X509_Certificate> cert_path = {ee, ca, trust_root};
+         const auto valid_time = Botan::calendar_point(2022, 9, 22, 22, 30, 0).to_std_timepoint();
+         const auto restrictions = Botan::Path_Validation_Restrictions();
+
+         // Here the intermediate has a stapled OCSP but the leaf does not
+         {
+            const std::vector<std::optional<Botan::OCSP::Response>> staples = {std::nullopt, ocsp_for_int};
+            const auto ocsp_status =
+               Botan::PKIX::check_ocsp(cert_path, staples, {&certstore}, valid_time, restrictions);
+
+            result.test_sz_eq("missing-leaf: ocsp_status sized to non-root certs", ocsp_status.size(), 2);
+            if(ocsp_status.size() == 2) {
+               result.test_is_true("missing-leaf: leaf slot is empty", ocsp_status[0].empty());
+               result.test_is_false("missing-leaf: intermediate slot is filled", ocsp_status[1].empty());
+            }
+         }
+
+         // Here the leaf has a stapled OCSP but the intermediate does not
+         {
+            const std::vector<std::optional<Botan::OCSP::Response>> staples = {ocsp_for_ee, std::nullopt};
+            const auto ocsp_status =
+               Botan::PKIX::check_ocsp(cert_path, staples, {&certstore}, valid_time, restrictions);
+
+            result.test_sz_eq("missing-intermediate: ocsp_status sized to non-root certs", ocsp_status.size(), 2);
+            if(ocsp_status.size() == 2) {
+               result.test_is_false("missing-intermediate: leaf slot is filled", ocsp_status[0].empty());
+               result.test_is_true("missing-intermediate: intermediate slot is empty", ocsp_status[1].empty());
             }
          }
 
@@ -482,6 +553,7 @@ class OCSP_Tests final : public Test {
 
          results.push_back(test_request_encoding());
          results.push_back(test_response_parsing());
+         results.push_back(test_response_with_bykey_responder_id());
          results.push_back(test_response_certificate_access());
          results.push_back(test_response_find_signing_certificate());
          results.push_back(test_response_verification_with_next_update_without_max_age());
@@ -491,6 +563,7 @@ class OCSP_Tests final : public Test {
          results.push_back(test_response_verification_softfail());
          results.push_back(test_response_verification_with_additionally_trusted_responder());
          results.push_back(test_forged_ocsp_signature_is_rejected());
+         results.push_back(test_partial_stapling_preserves_per_slot_gap());
          results.push_back(test_responder_cert_with_nocheck_extension());
 
    #if defined(BOTAN_HAS_ONLINE_REVOCATION_CHECKS)

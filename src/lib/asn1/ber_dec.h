@@ -86,7 +86,7 @@ class BOTAN_PUBLIC_API(2, 0) BER_Decoder final {
       */
       BOTAN_FUTURE_EXPLICIT BER_Decoder(BER_Object&& obj) : BER_Decoder(std::move(obj), nullptr) {}
 
-      BER_Decoder(const BER_Decoder& other);
+      BER_Decoder(const BER_Decoder& other) = delete;
       BER_Decoder(BER_Decoder&& other) noexcept;
 
       BER_Decoder& operator=(const BER_Decoder&) = delete;
@@ -371,7 +371,7 @@ class BOTAN_PUBLIC_API(2, 0) BER_Decoder final {
       BER_Object m_pushed;
       // either m_data_src.get() or an unowned pointer
       DataSource* m_source;
-      mutable std::unique_ptr<DataSource> m_data_src;
+      std::unique_ptr<DataSource> m_data_src;
 };
 
 /*

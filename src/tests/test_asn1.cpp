@@ -173,6 +173,55 @@ Test::Result test_asn1_ucs4_parsing() {
    return result;
 }
 
+Test::Result test_asn1_ucs_invalid_codepoint_rejection() {
+   Test::Result result("ASN.1 UCS-2/UCS-4 invalid codepoint rejection");
+
+   auto expect_decode_throws = [&](const char* what, const std::vector<uint8_t>& wire) {
+      result.test_throws(what, [&]() {
+         Botan::DataSource_Memory input(wire.data(), wire.size());
+         Botan::BER_Decoder dec(input);
+         Botan::ASN1_String str;
+         str.decode_from(dec);
+      });
+   };
+
+   auto expect_decode_ok = [&](const char* what, const std::vector<uint8_t>& wire) {
+      try {
+         Botan::DataSource_Memory input(wire.data(), wire.size());
+         Botan::BER_Decoder dec(input);
+         Botan::ASN1_String str;
+         str.decode_from(dec);
+         result.test_success(what);
+      } catch(const std::exception& ex) {
+         result.test_failure(Botan::fmt("{}: unexpected throw: {}", what, ex.what()));
+      }
+   };
+
+   // UniversalString (tag 0x1C) with codepoint 0x00110000 - one past Unicode max
+   expect_decode_throws("UniversalString rejects codepoint > 0x10FFFF", {0x1C, 0x04, 0x00, 0x11, 0x00, 0x00});
+
+   // UniversalString with codepoint 0xFFFFFFFF (clearly out of range)
+   expect_decode_throws("UniversalString rejects codepoint 0xFFFFFFFF", {0x1C, 0x04, 0xFF, 0xFF, 0xFF, 0xFF});
+
+   // UniversalString with high surrogate 0xD800
+   expect_decode_throws("UniversalString rejects surrogate codepoint", {0x1C, 0x04, 0x00, 0x00, 0xD8, 0x00});
+
+   // UniversalString boundary case: 0x10FFFF is the highest valid codepoint
+   expect_decode_ok("UniversalString accepts codepoint 0x10FFFF", {0x1C, 0x04, 0x00, 0x10, 0xFF, 0xFF});
+
+   // BmpString (tag 0x1E) with high surrogate
+   expect_decode_throws("BmpString rejects surrogate codepoint", {0x1E, 0x02, 0xD8, 0x00});
+
+   // BmpString with odd length is malformed
+   expect_decode_throws("BmpString rejects odd-length payload", {0x1E, 0x03, 0x00, 0x41, 0x00});
+
+   // UniversalString with non-multiple-of-4 length is malformed
+   expect_decode_throws("UniversalString rejects non-multiple-of-4 payload",
+                        {0x1C, 0x05, 0x00, 0x00, 0x00, 0x41, 0x00});
+
+   return result;
+}
+
 Test::Result test_asn1_ascii_encoding() {
    Test::Result result("ASN.1 ASCII encoding");
 
@@ -256,6 +305,44 @@ Test::Result test_asn1_negative_int_encoding() {
 
       result.test_bn_eq("DER encoding round trips negative integers", n_dec, n);
    }
+
+   return result;
+}
+
+Test::Result test_der_constructed_tag_17_not_sorted() {
+   Test::Result result("DER constructed [17] is not SET-sorted");
+
+   // Two INTEGERs in descending order. A universal SET would lex-sort and put
+   // 0x01 before 0x02; a non-universal constructed [17] must preserve order.
+   const std::vector<uint8_t> first = {0x02, 0x01, 0x02};   // INTEGER 2
+   const std::vector<uint8_t> second = {0x02, 0x01, 0x01};  // INTEGER 1
+
+   auto encode_with = [&](auto starter) {
+      Botan::DER_Encoder enc;
+      starter(enc).raw_bytes(first).raw_bytes(second).end_cons();
+      return enc.get_contents_unlocked();
+   };
+
+   // Reference: a universal SET of the same children gets sorted
+   const auto set_enc = encode_with([](Botan::DER_Encoder& e) -> Botan::DER_Encoder& { return e.start_set(); });
+   const std::vector<uint8_t> set_expected = {0x31, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02};
+   result.test_bin_eq("universal SET is lex-sorted", set_enc, set_expected);
+
+   // start_context_specific(17): tag byte = ContextSpecific | Constructed | 17 = 0xB1
+   const auto ctx_enc =
+      encode_with([](Botan::DER_Encoder& e) -> Botan::DER_Encoder& { return e.start_context_specific(17); });
+   const std::vector<uint8_t> ctx_expected = {0xB1, 0x06, 0x02, 0x01, 0x02, 0x02, 0x01, 0x01};
+   result.test_bin_eq("context-specific [17] preserves order", ctx_enc, ctx_expected);
+
+   // start_explicit_context_specific(17): same tag byte 0xB1
+   const auto explicit_ctx_enc =
+      encode_with([](Botan::DER_Encoder& e) -> Botan::DER_Encoder& { return e.start_explicit_context_specific(17); });
+   result.test_bin_eq("explicit context-specific [17] preserves order", explicit_ctx_enc, ctx_expected);
+
+   // start_explicit(17): used to throw Internal_Error; must now produce [17] in order
+   const auto explicit_enc =
+      encode_with([](Botan::DER_Encoder& e) -> Botan::DER_Encoder& { return e.start_explicit(17); });
+   result.test_bin_eq("start_explicit(17) preserves order", explicit_enc, ctx_expected);
 
    return result;
 }
@@ -372,10 +459,12 @@ class ASN1_Tests final : public Test {
          results.push_back(test_asn1_utf8_parsing());
          results.push_back(test_asn1_ucs2_parsing());
          results.push_back(test_asn1_ucs4_parsing());
+         results.push_back(test_asn1_ucs_invalid_codepoint_rejection());
          results.push_back(test_asn1_ascii_encoding());
          results.push_back(test_asn1_utf8_encoding());
          results.push_back(test_asn1_tag_underlying_type());
          results.push_back(test_asn1_negative_int_encoding());
+         results.push_back(test_der_constructed_tag_17_not_sorted());
 
          return results;
       }
@@ -415,6 +504,86 @@ class ASN1_Time_Parsing_Tests final : public Text_Based_Test {
 };
 
 BOTAN_REGISTER_TEST("asn1", "asn1_time", ASN1_Time_Parsing_Tests);
+
+class ASN1_String_Validation_Tests final : public Text_Based_Test {
+   public:
+      ASN1_String_Validation_Tests() :
+            Text_Based_Test("asn1_string_validation.vec",
+                            "Input,ValidNumeric,ValidPrintable,ValidIa5,ValidVisible,ValidUtf8") {}
+
+      Test::Result run_one_test(const std::string& /*header*/, const VarMap& vars) override {
+         Test::Result result("ASN.1 string validation");
+
+         const auto input = vars.get_req_str("Input");
+         const bool valid_numeric = vars.get_req_bool("ValidNumeric");
+         const bool valid_printable = vars.get_req_bool("ValidPrintable");
+         const bool valid_ia5 = vars.get_req_bool("ValidIa5");
+         const bool valid_visible = vars.get_req_bool("ValidVisible");
+         const bool valid_utf8 = vars.get_req_bool("ValidUtf8");
+
+         test_string_type(result, input, "NumericString", Botan::ASN1_Type::NumericString, valid_numeric);
+         test_string_type(result, input, "PrintableString", Botan::ASN1_Type::PrintableString, valid_printable);
+         test_string_type(result, input, "Ia5String", Botan::ASN1_Type::Ia5String, valid_ia5);
+         test_string_type(result, input, "VisibleString", Botan::ASN1_Type::VisibleString, valid_visible);
+         test_string_type(result, input, "Utf8String", Botan::ASN1_Type::Utf8String, valid_utf8);
+
+         if(valid_utf8) {
+            try {
+               const Botan::ASN1_String str(input);
+               const auto expected_tag =
+                  valid_printable ? Botan::ASN1_Type::PrintableString : Botan::ASN1_Type::Utf8String;
+               result.test_u32_eq("String tagging categorization",
+                                  static_cast<uint32_t>(str.tagging()),
+                                  static_cast<uint32_t>(expected_tag));
+            } catch(const std::exception& ex) {
+               result.test_failure(Botan::fmt("default constructor unexpectedly rejected '{}': {}", input, ex.what()));
+            }
+         }
+
+         return result;
+      }
+
+   private:
+      void test_string_type(Test::Result& result,
+                            std::string_view input,
+                            std::string_view type,
+                            Botan::ASN1_Type tag,
+                            bool expected_valid) {
+         if(expected_valid) {
+            try {
+               const Botan::ASN1_String str(input, tag);
+               result.test_str_eq(Botan::fmt("{} constructor value", type), str.value(), input);
+
+               const auto enc = raw_encode_string(input, tag);
+               Botan::BER_Decoder dec(enc);
+               Botan::ASN1_String decoded;
+               decoded.decode_from(dec);
+               result.test_str_eq(Botan::fmt("{} decode value", type), decoded.value(), input);
+            } catch(const std::exception& e) {
+               result.test_failure(Botan::fmt("{} unexpectedly rejected '{}': {}", type, input, e.what()));
+            }
+         } else {
+            result.test_throws(Botan::fmt("{} constructor rejects", type),
+                               [&]() { const Botan::ASN1_String str(input, tag); });
+
+            result.test_throws(Botan::fmt("{} decode rejects", type), [&]() {
+               const auto enc = raw_encode_string(input, tag);
+               Botan::BER_Decoder dec(enc);
+               Botan::ASN1_String decoded;
+               decoded.decode_from(dec);
+            });
+         }
+      }
+
+      static std::vector<uint8_t> raw_encode_string(std::string_view input, Botan::ASN1_Type tag) {
+         std::vector<uint8_t> encoding;
+         Botan::DER_Encoder der(encoding);
+         der.add_object(tag, Botan::ASN1_Class::Universal, input);
+         return encoding;
+      }
+};
+
+BOTAN_REGISTER_TEST("asn1", "asn1_string_validation", ASN1_String_Validation_Tests);
 
 class ASN1_Printer_Tests final : public Test {
    public:

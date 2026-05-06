@@ -11,7 +11,6 @@
 #include <botan/ber_dec.h>
 #include <botan/der_enc.h>
 #include <botan/internal/x509_utils.h>
-#include <cctype>
 #include <ostream>
 #include <sstream>
 
@@ -54,7 +53,11 @@ class X500_Char_Iterator {
          }
 
          const char c = m_str[m_pos++];
-         return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+         // Locale-independent ASCII fold; RFC 5280 DN matching does not depend on libc locale
+         if(c >= 'A' && c <= 'Z') {
+            return static_cast<char>(c + ('a' - 'A'));
+         }
+         return c;
       }
 
       static std::string canonicalize(std::string_view name) {

@@ -30,8 +30,8 @@ CertID::CertID(const X509_Certificate& issuer, const BigInt& subject_serial) : m
    auto hash = HashFunction::create_or_throw("SHA-1");
 
    m_hash_id = AlgorithmIdentifier(hash->name(), AlgorithmIdentifier::USE_NULL_PARAM);
-   m_issuer_key_hash = unlock(hash->process(issuer.subject_public_key_bitstring()));
-   m_issuer_dn_hash = unlock(hash->process(issuer.raw_subject_dn()));
+   m_issuer_key_hash = hash->process<std::vector<uint8_t>>(issuer.subject_public_key_bitstring());
+   m_issuer_dn_hash = hash->process<std::vector<uint8_t>>(issuer.raw_subject_dn());
 }
 
 bool CertID::is_id_for(const X509_Certificate& issuer, const X509_Certificate& subject) const {
@@ -48,11 +48,17 @@ bool CertID::is_id_for(const X509_Certificate& issuer, const X509_Certificate& s
 
       auto hash = HashFunction::create_or_throw(hash_algo);
 
-      if(m_issuer_dn_hash != unlock(hash->process(subject.raw_issuer_dn()))) {
+      /*
+      RFC 6960 4.1.1
+         issuerNameHash is the hash of the issuer's distinguished name (DN).
+         The hash shall be calculated over the DER encoding of the issuer's name
+         field in the certificate being checked.
+      */
+      if(m_issuer_dn_hash != hash->process<std::vector<uint8_t>>(subject.raw_issuer_dn())) {
          return false;
       }
 
-      if(m_issuer_key_hash != unlock(hash->process(issuer.subject_public_key_bitstring()))) {
+      if(m_issuer_key_hash != hash->process<std::vector<uint8_t>>(issuer.subject_public_key_bitstring())) {
          return false;
       }
    } catch(...) {
@@ -330,6 +336,10 @@ Response::Response(const uint8_t response_bits[], size_t response_bits_len) :
       if(!has_signer && !has_key_hash) {
          throw Decoding_Error("OCSP response contains neither byName nor byKey in responderID field");
       }
+      if(has_key_hash && m_key_hash.size() != 20) {
+         // KeyHash ::= OCTET STRING -- SHA-1 hash of responder's public key
+         throw Decoding_Error("OCSP response contains a byKey with invalid length");
+      }
 
       response_bytes.verify_end();
       response_bytes_ctx.verify_end();
@@ -462,21 +472,33 @@ Certificate_Status_Code Response::status_for(const X509_Certificate& issuer,
       if(response.certid().is_id_for(issuer, subject)) {
          const X509_Time x509_ref_time(ref_time);
 
+         /*
+         * We check certificate status prior to checking expiration, since otherwise it's
+         * possible to take an OCSP response indicating revocation, wait for it to expire,
+         * and then staple it. If such a response was reported as "expired" rather than
+         * "revoked" it's easy to dismiss as a clock issue or other misconfiguration.
+         */
+
          if(response.cert_status() == 1) {
             return Certificate_Status_Code::CERT_IS_REVOKED;
          }
 
-         if(response.this_update() > x509_ref_time) {
-            return Certificate_Status_Code::OCSP_NOT_YET_VALID;
-         }
-
-         if(response.next_update().time_is_set()) {
-            if(x509_ref_time > response.next_update()) {
-               return Certificate_Status_Code::OCSP_HAS_EXPIRED;
+         try {
+            if(response.this_update() > x509_ref_time) {
+               return Certificate_Status_Code::OCSP_NOT_YET_VALID;
             }
-         } else if(max_age > std::chrono::seconds::zero() &&
-                   ref_time - response.this_update().to_std_timepoint() > max_age) {
-            return Certificate_Status_Code::OCSP_IS_TOO_OLD;
+
+            if(response.next_update().time_is_set()) {
+               if(x509_ref_time > response.next_update()) {
+                  return Certificate_Status_Code::OCSP_HAS_EXPIRED;
+               }
+            } else if(max_age > std::chrono::seconds::zero() &&
+                      ref_time - response.this_update().to_std_timepoint() > max_age) {
+               return Certificate_Status_Code::OCSP_IS_TOO_OLD;
+            }
+         } catch(Exception&) {
+            // This can occur if eg the OCSP time is not representable by the system clock
+            return Certificate_Status_Code::OCSP_RESPONSE_INVALID;
          }
 
          if(response.cert_status() == 0) {

@@ -290,7 +290,7 @@ std::pair<std::shared_ptr<EC_Group_Data>, bool> EC_Group::DER_decode_EC_group(st
          .start_sequence()
          .decode_octet_string_bigint(a)
          .decode_octet_string_bigint(b)
-         .decode_optional_string(seed, ASN1_Type::BitString, ASN1_Type::BitString)
+         .decode_optional_string(seed, ASN1_Type::BitString, ASN1_Type::BitString, ASN1_Class::Universal)
          .end_cons()
          .decode(base_pt, ASN1_Type::OctetString)
          .decode(order)
