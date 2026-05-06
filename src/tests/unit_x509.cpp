@@ -805,8 +805,9 @@ Test::Result test_verify_gost2012_cert() {
          trusted.add_certificate(root_cert);
 
          const Botan::Path_Validation_Restrictions restrictions(false, 128, false, {"Streebog-256"});
-         const Botan::Path_Validation_Result validation_result =
-            Botan::x509_path_validate(root_int, restrictions, trusted);
+         const auto validation_time = Botan::calendar_point(2024, 1, 1, 0, 0, 0).to_std_timepoint();
+         const Botan::Path_Validation_Result validation_result = Botan::x509_path_validate(
+            root_int, restrictions, trusted, "", Botan::Usage_Type::UNSPECIFIED, validation_time);
 
          result.test_is_true("GOST certificate validates", validation_result.successful_validation());
       }
