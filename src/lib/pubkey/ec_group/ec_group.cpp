@@ -410,7 +410,29 @@ EC_Group::EC_Group(std::shared_ptr<EC_Group_Data>&& data) : m_data(std::move(dat
 
 //static
 bool EC_Group::supports_named_group(std::string_view name) {
-   return EC_Group::known_named_groups().contains(std::string(name));
+   if(name.empty()) {
+      return false;
+   }
+
+   // Is it one of the groups compiled into the library?
+   if(EC_Group::known_named_groups().contains(std::string(name))) {
+      return true;
+   }
+
+   // Is it a custom group registered by the application?
+   if(auto oid = OID::from_name(name)) {
+      try {
+         if(ec_group_data().lookup(oid.value()) != nullptr) {
+            return true;
+         }
+      } catch(Not_Implemented&) {
+         // This would be thrown for example if the group is a known curve
+         // but the relevant module that enables it is not compiled in
+      }
+   }
+
+   // Not known
+   return false;
 }
 
 //static
