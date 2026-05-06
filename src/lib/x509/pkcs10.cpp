@@ -17,7 +17,8 @@
 
 namespace Botan {
 
-struct PKCS10_Data {
+class PKCS10_Data final {
+   public:
       X509_DN m_subject_dn;
       std::vector<uint8_t> m_public_key_bits;
       AlternativeName m_alt_name;

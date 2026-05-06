@@ -26,7 +26,7 @@ namespace Botan {
  * the coefficient of z^i. For example, the element (z^3 + z^2 + 1) is represented
  * by the uint16_t 0b1101.
  */
-class BOTAN_TEST_API Classic_McEliece_GF {
+class BOTAN_TEST_API Classic_McEliece_GF final {
    public:
       /**
        * @brief Creates an element of GF(q) from a uint16_t.

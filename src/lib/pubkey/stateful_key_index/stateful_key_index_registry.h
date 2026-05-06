@@ -27,7 +27,7 @@ namespace Botan {
  */
 class Stateful_Key_Index_Registry final {
    public:
-      class KeyId {
+      class KeyId final {
          public:
             /**
             * Create a KeyId for some kind of key material

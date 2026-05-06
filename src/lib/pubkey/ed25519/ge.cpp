@@ -31,7 +31,7 @@ Several different point representations are used in this implementation
 *
 * ((X:Z),(Y:T)) satisfying x=X/Z, y=Y/T
 */
-class Ed25519_Point_Completed {
+class Ed25519_Point_Completed final {
    public:
       Ed25519_FieldElement X;  // NOLINT(misc-non-private-member-variables-in-classes)
       Ed25519_FieldElement Y;  // NOLINT(misc-non-private-member-variables-in-classes)
@@ -44,7 +44,7 @@ class Ed25519_Point_Completed {
 *
 * (X:Y:Z) satisfying x=X/Z, y=Y/Z
 */
-class Ed25519_Point_Projective {
+class Ed25519_Point_Projective final {
    public:
       Ed25519_FieldElement X;  // NOLINT(misc-non-private-member-variables-in-classes)
       Ed25519_FieldElement Y;  // NOLINT(misc-non-private-member-variables-in-classes)
@@ -99,7 +99,7 @@ Ed25519_Point_Completed Ed25519_Point_Projective::dbl() const {
 *
 * (X:Y:Z:T) satisfying x=X/Z, y=Y/Z, XY=ZT
 */
-class Ed25519_Point_Extended {
+class Ed25519_Point_Extended final {
    public:
       Ed25519_FieldElement X;  // NOLINT(misc-non-private-member-variables-in-classes)
       Ed25519_FieldElement Y;  // NOLINT(misc-non-private-member-variables-in-classes)
@@ -151,7 +151,7 @@ class Ed25519_Point_Extended {
 *
 * where d is the Edwards curve constant.
 */
-class Ed25519_Point_Niels {
+class Ed25519_Point_Niels final {
    public:
       Ed25519_FieldElement yplusx;   // NOLINT(misc-non-private-member-variables-in-classes)
       Ed25519_FieldElement yminusx;  // NOLINT(misc-non-private-member-variables-in-classes)
@@ -166,7 +166,7 @@ class Ed25519_Point_Niels {
       }
 };
 
-class Ed25519_Point_Cached {
+class Ed25519_Point_Cached final {
    public:
       Ed25519_FieldElement YplusX;   // NOLINT(misc-non-private-member-variables-in-classes)
       Ed25519_FieldElement YminusX;  // NOLINT(misc-non-private-member-variables-in-classes)

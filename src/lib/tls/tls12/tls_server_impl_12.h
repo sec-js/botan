@@ -21,7 +21,7 @@ class Server_Handshake_State;
 /**
 * SSL/TLS Server 1.2 implementation
 */
-class Server_Impl_12 : public Channel_Impl_12 {
+class Server_Impl_12 final : public Channel_Impl_12 {
    public:
       /**
       * Server initialization

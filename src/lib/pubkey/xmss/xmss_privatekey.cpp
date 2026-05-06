@@ -56,7 +56,7 @@ secure_vector<uint8_t> extract_raw_private_key(std::span<const uint8_t> key_bits
 
 }  // namespace
 
-class XMSS_PrivateKey_Internal {
+class XMSS_PrivateKey_Internal final {
    public:
       XMSS_PrivateKey_Internal(XMSS_Parameters::xmss_algorithm_t xmss_algo_id,
                                WOTS_Derivation_Method wots_derivation_method,

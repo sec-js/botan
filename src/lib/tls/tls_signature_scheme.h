@@ -26,7 +26,7 @@ namespace Botan::TLS {
 
 class Protocol_Version;
 
-class BOTAN_PUBLIC_API(3, 0) Signature_Scheme {
+class BOTAN_PUBLIC_API(3, 0) Signature_Scheme final {
    public:
       /**
       * Matches with wire encoding

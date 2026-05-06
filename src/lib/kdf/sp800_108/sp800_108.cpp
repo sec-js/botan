@@ -21,7 +21,7 @@ namespace Botan {
 
 namespace {
 
-class CounterParams {
+class CounterParams final {
    public:
       constexpr static void validate_bit_lengths(size_t counter_bits, size_t output_length_bits) {
          BOTAN_ARG_CHECK(counter_bits % 8 == 0 && counter_bits <= 32,

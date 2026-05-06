@@ -127,7 +127,8 @@ class BOTAN_PUBLIC_API(2, 0) X509_Object : public ASN1_Object {
    private:
       virtual void force_decode() = 0;
 
-      struct Signed_Data {
+      class Signed_Data final {
+         public:
             AlgorithmIdentifier m_sig_algo;
             std::vector<uint8_t> m_tbs_bits;
             std::vector<uint8_t> m_sig;

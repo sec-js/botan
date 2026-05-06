@@ -18,7 +18,7 @@ namespace Botan {
 /**
 * Struct representing a particular date and time
 */
-class BOTAN_TEST_API calendar_point {
+class BOTAN_TEST_API calendar_point final {
    public:
       /** The year */
       uint32_t year() const { return m_year; }

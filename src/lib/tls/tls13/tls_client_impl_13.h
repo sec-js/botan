@@ -25,7 +25,7 @@ namespace TLS {
 /**
 * SSL/TLS Client 1.3 implementation
 */
-class Client_Impl_13 : public Channel_Impl_13 {
+class Client_Impl_13 final : public Channel_Impl_13 {
    public:
       /**
       * Set up a new TLS client session

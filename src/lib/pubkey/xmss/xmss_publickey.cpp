@@ -67,7 +67,7 @@ std::vector<uint8_t> extract_raw_public_key(std::span<const uint8_t> key_bits) {
 
 }  // namespace
 
-class XMSS_PublicKey_Internal {
+class XMSS_PublicKey_Internal final {
    public:
       XMSS_PublicKey_Internal(const XMSS_Parameters& params,
                               secure_vector<uint8_t> root,

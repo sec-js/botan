@@ -47,7 +47,7 @@ namespace {
  * Each call to next() resumes the search and returns the next discovered path, or nullopt
  * when the search space is exhausted.
 */
-class CertificatePathBuilder {
+class CertificatePathBuilder final {
    public:
       CertificatePathBuilder(const std::vector<Certificate_Store*>& trusted_certstores,
                              const X509_Certificate& end_entity,

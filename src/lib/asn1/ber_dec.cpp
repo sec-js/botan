@@ -93,7 +93,7 @@ size_t find_eoc(DataSource* src, size_t base_offset, size_t allow_indef);
 * is the number of content bytes (excluding the 2-byte EOC marker) and the
 * caller must consume the EOC bytes after reading the content.
 */
-class BerDecodedLength {
+class BerDecodedLength final {
    public:
       BerDecodedLength(size_t content_length, size_t field_length) :
             BerDecodedLength(content_length, field_length, false) {}

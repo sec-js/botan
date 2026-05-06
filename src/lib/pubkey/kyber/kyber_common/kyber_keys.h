@@ -80,7 +80,7 @@ class Kyber_PublicKeyInternal final {
       const KyberSeedRho m_rho;
 };
 
-class Kyber_PrivateKeyInternal {
+class Kyber_PrivateKeyInternal final {
    public:
       Kyber_PrivateKeyInternal(KyberConstants mode, KyberPolyVecNTT s, KyberPrivateKeySeed seed) :
             m_mode(std::move(mode)), m_s(std::move(s)), m_seed(std::move(seed)) {}

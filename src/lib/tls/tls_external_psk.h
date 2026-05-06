@@ -19,7 +19,7 @@ namespace Botan::TLS {
  * This is an externally provided PreSharedKey along with its identity, master
  * secret and (in case of TLS 1.3) a pre-provisioned Pseudo Random Function.
  */
-class BOTAN_PUBLIC_API(3, 2) ExternalPSK {
+class BOTAN_PUBLIC_API(3, 2) ExternalPSK final {
    public:
       ExternalPSK(const ExternalPSK&) = delete;
       ExternalPSK& operator=(const ExternalPSK&) = delete;

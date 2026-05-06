@@ -18,7 +18,7 @@
 
 namespace Botan {
 
-class BOTAN_PUBLIC_API(3, 0) DilithiumMode {
+class BOTAN_PUBLIC_API(3, 0) DilithiumMode final {
    public:
       enum Mode : uint8_t /* NOLINT(*-use-enum-class) */ {
          Dilithium4x4 BOTAN_DEPRECATED("Dilithium R3 is deprecated - use ML-DSA") = 1,

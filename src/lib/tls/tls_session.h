@@ -145,7 +145,7 @@ class BOTAN_PUBLIC_API(3, 0) Session_Base {
  * Summarizes the negotiated features after a TLS handshake. Applications may
  * query those in Callbacks::tls_session_established().
  */
-class BOTAN_PUBLIC_API(3, 0) Session_Summary : public Session_Base {
+class BOTAN_PUBLIC_API(3, 0) Session_Summary final : public Session_Base {
    public:
       /**
        * The Session_ID negotiated during the handshake.
@@ -382,7 +382,7 @@ class BOTAN_PUBLIC_API(3, 0) Session final : public Session_Base {
 /**
  * Helper struct to conveniently pass a Session and its Session_Handle around
  */
-class BOTAN_PUBLIC_API(3, 0) Session_with_Handle {
+class BOTAN_PUBLIC_API(3, 0) Session_with_Handle final {
    public:
       Session session;
       Session_Handle handle;

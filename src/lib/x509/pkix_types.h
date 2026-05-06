@@ -689,7 +689,7 @@ class BOTAN_PUBLIC_API(2, 0) Extensions final : public ASN1_Object {
                                                                     bool critical,
                                                                     const std::vector<uint8_t>& body);
 
-      class BOTAN_UNSTABLE_API Extensions_Info {
+      class BOTAN_UNSTABLE_API Extensions_Info final {
          public:
             Extensions_Info(bool critical, std::unique_ptr<Certificate_Extension> ext) :
                   m_obj(std::move(ext)), m_bits(m_obj->encode_inner()), m_critical(critical) {}

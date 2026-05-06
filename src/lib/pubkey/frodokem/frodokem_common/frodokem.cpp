@@ -31,7 +31,7 @@
 
 namespace Botan {
 
-class FrodoKEM_PublicKeyInternal {
+class FrodoKEM_PublicKeyInternal final {
    public:
       FrodoKEM_PublicKeyInternal(FrodoKEMConstants constants, FrodoSeedA seed_a, FrodoMatrix b) :
             m_constants(std::move(constants)), m_seed_a(std::move(seed_a)), m_b(std::move(b)) {
@@ -57,7 +57,7 @@ class FrodoKEM_PublicKeyInternal {
       FrodoPublicKeyHash m_hash;
 };
 
-class FrodoKEM_PrivateKeyInternal {
+class FrodoKEM_PrivateKeyInternal final {
    public:
       FrodoKEM_PrivateKeyInternal(FrodoSeedS s, FrodoMatrix s_trans) :
             m_s(std::move(s)), m_s_trans(std::move(s_trans)) {}
