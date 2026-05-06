@@ -577,11 +577,8 @@ void Server_Impl_13::handle(const Certificate_13& certificate_msg) {
       //       and 'ignore' validation issues to a certain extent.
 
       const bool use_ocsp = m_handshake->state.certificate_request().extensions().has<Certificate_Status_Request>();
-      certificate_msg.verify(callbacks(),
-                             policy(),
-                             credentials_manager(),
-                             m_handshake->state.client_hello().sni_hostname(),
-                             use_ocsp);
+      certificate_msg.verify(
+         callbacks(), policy(), credentials_manager(), m_handshake->state.client_hello().sni_hostname(), use_ocsp);
 
       // RFC 8446 4.4.3
       //    Clients MUST send this message whenever authenticating via a
