@@ -249,7 +249,9 @@ class BOTAN_PUBLIC_API(2, 0) EC_Group final {
       static bool supports_application_specific_group_with_cofactor();
 
       /**
-      * Return true if in this build configuration EC_Group::from_name(name) will succeed
+      * Return true if EC_Group::from_name(name) should succeed for this name
+      * either because it is a group compiled into the library or it is a group
+      * which has already been registered by the application at runtime.
       */
       static bool supports_named_group(std::string_view name);
 
@@ -271,9 +273,11 @@ class BOTAN_PUBLIC_API(2, 0) EC_Group final {
       /**
       * Return a set of known named EC groups
       *
-      * This returns the set of groups for which from_name should succeed
-      * Note that the set of included groups can vary based on the
-      * build configuration.
+      * This returns a set of groups for which from_name should succeed.
+      *
+      * Note that the set of included groups can vary based on the build
+      * configuration, and that this list does not include any groups registered
+      * by the application at runtime.
       */
       static const std::set<std::string>& known_named_groups();
 
