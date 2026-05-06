@@ -25,7 +25,7 @@ static_assert(
 
 namespace Botan {
 
-class BOTAN_PUBLIC_API(3, 0) KyberMode {
+class BOTAN_PUBLIC_API(3, 0) KyberMode final {
    public:
       enum Mode : uint8_t /* NOLINT(*-use-enum-class) */ {
          // Kyber512 as proposed in round 3 of the NIST competition

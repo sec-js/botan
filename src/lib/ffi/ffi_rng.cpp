@@ -97,7 +97,7 @@ int botan_rng_init_custom(botan_rng_t* rng_out,
          return BOTAN_FFI_ERROR_NULL_POINTER;
       }
 
-      class Custom_RNG : public Botan::RandomNumberGenerator {
+      class Custom_RNG final : public Botan::RandomNumberGenerator {
          public:
             Custom_RNG(std::string_view name,
                        void* context,

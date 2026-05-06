@@ -111,7 +111,7 @@ const uint8_t* GF_MUL_TABLE(uint8_t y) {
 * (Gauss-Jordan algorithm, adapted from Numerical Recipes in C)
 */
 void invert_matrix(uint8_t matrix[], size_t K) {
-   class pivot_searcher {
+   class pivot_searcher final {
       public:
          explicit pivot_searcher(size_t K) : m_ipiv(K) {}
 

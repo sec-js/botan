@@ -769,7 +769,7 @@ int OS::run_cpu_instruction_probe(const std::function<int()>& probe_fn) {
 
 std::unique_ptr<OS::Echo_Suppression> OS::suppress_echo_on_terminal() {
 #if defined(BOTAN_TARGET_OS_HAS_POSIX1)
-   class POSIX_Echo_Suppression : public Echo_Suppression {
+   class POSIX_Echo_Suppression final : public Echo_Suppression {
       public:
          POSIX_Echo_Suppression() : m_stdin_fd(fileno(stdin)), m_old_termios{} {
             if(::tcgetattr(m_stdin_fd, &m_old_termios) != 0) {
@@ -814,7 +814,7 @@ std::unique_ptr<OS::Echo_Suppression> OS::suppress_echo_on_terminal() {
 
 #elif defined(BOTAN_TARGET_OS_HAS_WIN32)
 
-   class Win32_Echo_Suppression : public Echo_Suppression {
+   class Win32_Echo_Suppression final : public Echo_Suppression {
       public:
          Win32_Echo_Suppression() {
             m_input_handle = ::GetStdHandle(STD_INPUT_HANDLE);

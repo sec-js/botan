@@ -22,7 +22,8 @@
 
 namespace Botan {
 
-struct X509_Certificate_Data {
+class X509_Certificate_Data final {
+   public:
       std::vector<uint8_t> m_serial;
       AlgorithmIdentifier m_sig_algo_inner;
       X509_DN m_issuer_dn;

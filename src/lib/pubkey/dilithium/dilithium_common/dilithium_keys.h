@@ -30,7 +30,7 @@ class Dilithium_Keypair_Codec /* NOLINT(*-special-member-functions) */ {
                                                       DilithiumConstants mode) const = 0;
 };
 
-class Dilithium_PublicKeyInternal {
+class Dilithium_PublicKeyInternal final {
    public:
       static std::shared_ptr<Dilithium_PublicKeyInternal> decode(
          DilithiumConstants mode, StrongSpan<const DilithiumSerializedPublicKey> raw_pk) {
@@ -65,7 +65,7 @@ class Dilithium_PublicKeyInternal {
       DilithiumHashedPublicKey m_tr;
 };
 
-class Dilithium_PrivateKeyInternal {
+class Dilithium_PrivateKeyInternal final {
    public:
       Dilithium_PrivateKeyInternal(DilithiumConstants mode,
                                    std::optional<DilithiumSeedRandomness> seed,

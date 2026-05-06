@@ -20,7 +20,7 @@ namespace Botan::TLS {
 /**
 * SSL/TLS Client 1.2 implementation
 */
-class Client_Impl_12 : public Channel_Impl_12 {
+class Client_Impl_12 final : public Channel_Impl_12 {
    public:
       /**
       * Set up a new TLS client session

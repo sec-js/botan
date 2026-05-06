@@ -997,7 +997,7 @@ class AffineCurvePoint final {
 * This uses Jacobian coordinates
 */
 template <typename FieldElement, typename Params>
-class ProjectiveCurvePoint {
+class ProjectiveCurvePoint final {
    public:
       // We can't pass a FieldElement directly because FieldElement is
       // not "structural" due to having private members, so instead

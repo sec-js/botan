@@ -1014,7 +1014,7 @@ class BOTAN_PUBLIC_API(2, 0) BigInt final {
        */
       void assign_from_bytes(std::span<const uint8_t> bytes);
 
-      class Data {
+      class Data final {
          public:
             word* mutable_data() {
                invalidate_sig_words();

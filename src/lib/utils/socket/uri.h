@@ -14,7 +14,7 @@
 
 namespace Botan {
 
-class BOTAN_TEST_API URI {
+class BOTAN_TEST_API URI final {
    public:
       enum class Type : uint8_t {
          IPv4,

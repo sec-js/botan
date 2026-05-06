@@ -25,7 +25,7 @@ bool is_space(char c) {
 /*
 * Yields the X.500 canonical form of a name component one character at a time
 */
-class X500_Char_Iterator {
+class X500_Char_Iterator final {
    public:
       explicit X500_Char_Iterator(std::string_view s) : m_str(s), m_pos(0) {
          // Skip leading whitespace

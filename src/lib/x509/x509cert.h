@@ -22,10 +22,12 @@ class NameConstraints;
 class Public_Key;
 class X509_DN;
 
-struct X509_Certificate_Data;
+class X509_Certificate_Data;
 
 /**
 * This class represents an X.509 Certificate
+*
+* TODO(Botan4) mark this final once PKCS11_X509_Certificate is fixed
 */
 class BOTAN_PUBLIC_API(2, 0) X509_Certificate : public X509_Object {
    public:

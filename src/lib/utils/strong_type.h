@@ -214,7 +214,7 @@ class Strong_Adapter<T> : public Container_Strong_Adapter_Base<T> {
  *   https://stackoverflow.com/a/69030899
  */
 template <typename T, typename TagTypeT, typename... Capabilities>
-class Strong : public detail::Strong_Adapter<T> {
+class Strong final : public detail::Strong_Adapter<T> {
    public:
       using detail::Strong_Adapter<T>::Strong_Adapter;
 
@@ -656,7 +656,7 @@ constexpr auto operator--(Strong<T, Tags...>& a) {
  *                              // just annotates the 'Foo' strong-type info.
  */
 template <concepts::contiguous_strong_type T>
-class StrongSpan {
+class StrongSpan final {
       using underlying_span = std::
          conditional_t<std::is_const_v<T>, std::span<const typename T::value_type>, std::span<typename T::value_type>>;
 
