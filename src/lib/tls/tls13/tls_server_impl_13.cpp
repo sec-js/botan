@@ -575,11 +575,13 @@ void Server_Impl_13::handle(const Certificate_13& certificate_msg) {
       // TODO: We could make this dependent on Policy::require_client_auth().
       //       Though, apps may also override Callbacks::tls_verify_cert_chain()
       //       and 'ignore' validation issues to a certain extent.
+
+      const bool use_ocsp = m_handshake->state.certificate_request().extensions().has<Certificate_Status_Request>();
       certificate_msg.verify(callbacks(),
                              policy(),
                              credentials_manager(),
                              m_handshake->state.client_hello().sni_hostname(),
-                             m_handshake->state.client_hello().extensions().has<Certificate_Status_Request>());
+                             use_ocsp);
 
       // RFC 8446 4.4.3
       //    Clients MUST send this message whenever authenticating via a
