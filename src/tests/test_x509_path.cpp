@@ -41,7 +41,8 @@ namespace {
 
 #if defined(BOTAN_HAS_X509_CERTIFICATES) && defined(BOTAN_TARGET_OS_HAS_FILESYSTEM)
 
-[[maybe_unused]] std::map<std::string, std::string> read_results(const std::string& results_file, const char delim = ':') {
+[[maybe_unused]] std::map<std::string, std::string> read_results(const std::string& results_file,
+                                                                 const char delim = ':') {
    std::ifstream in(results_file);
    if(!in.good()) {
       throw Test_Error("Failed reading " + results_file);
