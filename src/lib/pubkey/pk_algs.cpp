@@ -640,7 +640,7 @@ std::unique_ptr<Private_Key> create_private_key(std::string_view alg_name,
          if(params.empty()) {
             return XMSS_Parameters::XMSS_SHA2_10_512;
          }
-         return XMSS_Parameters(params).oid();
+         return XMSS_Parameters::from_name(params).oid();
       }();
 
       return std::make_unique<XMSS_PrivateKey>(xmss_oid, rng);
