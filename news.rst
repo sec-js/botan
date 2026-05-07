@@ -1,8 +1,11 @@
 Release Notes
 ========================================
 
-Version 3.12.0, Not Yet Released
+Version 3.12.0, 2026-05-06
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* CVE-2026-44378: Resolve a CPU based denial of service when decoding
+  BER encoded data.
 
 * Optimize and improve certificate store search operations (GH #5510)
 

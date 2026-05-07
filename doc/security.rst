@@ -18,6 +18,19 @@ https://keybase.io/jacklloyd and on most PGP keyservers.
 2026
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+* 2026-05-06 (CVE-2026-44378): BER decoding denial of service
+
+  Certain patterns of indefinite length encodings in BER data could cause
+  quadratic behavior in the parser, resulting in a denial of service. Up until
+  Botan 3.12.0, such BER encodings were accepted even in structures which are
+  required to be encoded as DER. Any party able to transmit any ASN.1 encoded
+  data, such as a certificate or OCSP response, can induce CPU based denial of
+  service.
+
+  Fixed in 3.12.0, all prior versions affected
+
+  Credit: yt3
+
 * 2026-03-31 (CVE-2026-34582): TLS 1.3 client authentication bypass
 
   The TLS 1.3 implementation allowed ApplicationData records to be processed
