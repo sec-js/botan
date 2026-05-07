@@ -161,6 +161,7 @@ void GeneralName::decode_from(BER_Decoder& ber) {
       X509_DN dn;
       BER_Decoder dec(obj, ber.limits());
       dn.decode_from(dec);
+      dec.verify_end();
       m_type = NameType::DN;
       m_name.emplace<DN_IDX>(dn);
    } else if(obj.is_a(7, ASN1_Class::ContextSpecific)) {

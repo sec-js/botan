@@ -167,6 +167,7 @@ void decode_optional_list(BER_Decoder& ber, ASN1_Type tag, std::vector<X509_Cert
       }());
    }
    seq.end_cons();
+   list.verify_end();
 }
 
 }  // namespace

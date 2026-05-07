@@ -158,7 +158,7 @@ void AlternativeName::decode_from(BER_Decoder& source) {
       } else if(obj.is_a(4, ASN1_Class::ContextSpecific | ASN1_Class::Constructed)) {
          BER_Decoder dec(obj, names.limits());
          X509_DN dn;
-         dec.decode(dn);
+         dec.decode(dn).verify_end();
          this->add_dn(dn);
       } else if(obj.is_a(6, ASN1_Class::ContextSpecific)) {
          this->add_uri(ASN1::to_string(obj));
