@@ -263,11 +263,21 @@ Response::Response(const uint8_t response_bits[], size_t response_bits_len) :
 
    m_status = static_cast<Response_Status_Code>(resp_status);
 
-   if(m_status != Response_Status_Code::Successful) {
-      return;
+   /*
+   * RFC 6960 4.2.1: "If the value of responseStatus is one of the error
+   * conditions, the responseBytes field is not set."
+   */
+   const bool successful = (m_status == Response_Status_Code::Successful);
+   const bool has_response_bytes = response_outer.more_items();
+
+   if(successful && !has_response_bytes) {
+      throw Decoding_Error("OCSP response with successful status is missing responseBytes");
+   }
+   if(!successful && has_response_bytes) {
+      throw Decoding_Error("OCSP response with non-successful status includes responseBytes");
    }
 
-   if(response_outer.more_items()) {
+   if(successful) {
       BER_Decoder response_bytes_ctx = response_outer.start_context_specific(0);
       BER_Decoder response_bytes = response_bytes_ctx.start_sequence();
 
