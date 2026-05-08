@@ -265,11 +265,11 @@ BigInt gcd(const BigInt& a, const BigInt& b) {
       factors_of_two += (u_is_even & v_is_even).if_set_return(1);
 
       // remove one factor of 2, if u is even
-      bigint_shr2(tmp.mutable_data(), u._data(), sz, 1);
+      bigint_shr2(tmp.mutable_data(), sz, u._data(), sz, 1);
       u.ct_cond_assign(u_is_even.as_bool(), tmp);
 
       // remove one factor of 2, if v is even
-      bigint_shr2(tmp.mutable_data(), v._data(), sz, 1);
+      bigint_shr2(tmp.mutable_data(), sz, v._data(), sz, 1);
       v.ct_cond_assign(v_is_even.as_bool(), tmp);
    }
 

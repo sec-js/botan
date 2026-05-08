@@ -186,15 +186,19 @@ word operator%(const BigInt& n, word mod) {
 * Left Shift Operator
 */
 BigInt operator<<(const BigInt& x, size_t shift) {
+   if(shift >= 65536) {
+      throw Invalid_Argument("BigInt left shift count too large");
+   }
+
    if(x.is_zero()) {
       return BigInt::zero();
    }
 
    const size_t x_sw = x.sig_words();
 
-   const size_t new_size = x_sw + (shift + WordInfo<word>::bits - 1) / WordInfo<word>::bits;
+   const size_t new_size = x_sw + shift / WordInfo<word>::bits + 1;
    BigInt y = BigInt::with_capacity(new_size);
-   bigint_shl2(y.mutable_data(), x._data(), x_sw, shift);
+   bigint_shl2(y.mutable_data(), new_size, x._data(), x_sw, shift);
    y.set_sign(x.sign());
    return y;
 }
@@ -210,8 +214,9 @@ BigInt operator>>(const BigInt& x, size_t shift) {
       return BigInt::zero();
    }
 
-   BigInt y = BigInt::with_capacity(x_sw - shift_words);
-   bigint_shr2(y.mutable_data(), x._data(), x_sw, shift);
+   const size_t new_size = x_sw - shift_words;
+   BigInt y = BigInt::with_capacity(new_size);
+   bigint_shr2(y.mutable_data(), new_size, x._data(), x_sw, shift);
 
    if(x.signum() < 0 && y.is_zero()) {
       y.set_sign(BigInt::Positive);

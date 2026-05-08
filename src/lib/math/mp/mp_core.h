@@ -303,10 +303,15 @@ inline constexpr auto bigint_sub_abs(W z[], const W x[], const W y[], size_t N, 
 /*
 * Shift Operations
 */
+
+// Caller must ensure x[x_words..x_size-1] is zeroed.
 template <WordType W>
 inline constexpr void bigint_shl1(W x[], size_t x_size, size_t x_words, size_t shift) {
    const size_t word_shift = shift / WordInfo<W>::bits;
    const size_t bit_shift = shift % WordInfo<W>::bits;
+
+   BOTAN_ASSERT_NOMSG(word_shift <= x_size);
+   BOTAN_ASSERT_NOMSG(x_words <= x_size - word_shift);
 
    unchecked_copy_memory(x + word_shift, x, x_words);
    zeroize_buffer(x, word_shift);
@@ -347,11 +352,16 @@ inline constexpr void bigint_shr1(W x[], size_t x_size, size_t shift) {
 }
 
 template <WordType W>
-inline constexpr void bigint_shl2(W y[], const W x[], size_t x_size, size_t shift) {
+inline constexpr void bigint_shl2(W y[], size_t y_size, const W x[], size_t x_size, size_t shift) {
    const size_t word_shift = shift / WordInfo<W>::bits;
    const size_t bit_shift = shift % WordInfo<W>::bits;
 
+   BOTAN_ASSERT_NOMSG(word_shift <= y_size);
+   BOTAN_ASSERT_NOMSG(x_size < y_size - word_shift);
+
    unchecked_copy_memory(y + word_shift, x, x_size);
+   zeroize_buffer(y, word_shift);
+   zeroize_buffer(y + word_shift + x_size, y_size - word_shift - x_size);
 
    const auto carry_mask = CT::Mask<W>::expand(bit_shift);
    const W carry_shift = carry_mask.if_set_return(WordInfo<W>::bits - bit_shift);
@@ -365,14 +375,17 @@ inline constexpr void bigint_shl2(W y[], const W x[], size_t x_size, size_t shif
 }
 
 template <WordType W>
-inline constexpr void bigint_shr2(W y[], const W x[], size_t x_size, size_t shift) {
+inline constexpr void bigint_shr2(W y[], size_t y_size, const W x[], size_t x_size, size_t shift) {
    const size_t word_shift = shift / WordInfo<W>::bits;
    const size_t bit_shift = shift % WordInfo<W>::bits;
    const size_t new_size = x_size < word_shift ? 0 : (x_size - word_shift);
 
+   BOTAN_ASSERT_NOMSG(new_size <= y_size);
+
    if(new_size > 0) {
       unchecked_copy_memory(y, x + word_shift, new_size);
    }
+   zeroize_buffer(y + new_size, y_size - new_size);
 
    const auto carry_mask = CT::Mask<W>::expand(bit_shift);
    const W carry_shift = carry_mask.if_set_return(WordInfo<W>::bits - bit_shift);
