@@ -830,18 +830,34 @@ bool EC_Group::verify_group(RandomNumberGenerator& rng, bool strong) const {
       return false;
    }
 
+   // Check that the generator (g_x, g_y) is on the curve: y^2 == x^3 + a*x + b
+   const BigInt& g_x = get_g_x();
+   const BigInt& g_y = get_g_y();
+   const BigInt y2 = mod_p.square(g_y);
+   const BigInt x3_ax_b = mod_p.reduce(mod_p.cube(g_x) + mod_p.multiply(a, g_x) + b);
+   if(y2 != x3_ax_b) {
+      return false;
+   }
+
+   // Check that the generator has the claimed order: [order]G == identity,
+   auto g_pt = EC_AffinePoint::from_bigint_xy(*this, get_g_x(), get_g_y());
+   if(!g_pt) {
+      return false;
+   }
+   const auto neg_one = EC_Scalar::one(*this).negate();
+   const auto n_minus_one_g = EC_AffinePoint::g_mul(neg_one, rng);
+   if(n_minus_one_g != g_pt->negate()) {
+      return false;
+   }
+
 #if defined(BOTAN_HAS_LEGACY_EC_POINT)
-   const EC_Point& base_point = get_base_point();
-   //check if the base point is on the curve
-   if(!base_point.on_the_curve()) {
-      return false;
-   }
-   if((base_point * get_cofactor()).is_zero()) {
-      return false;
-   }
-   //check if order of the base point is correct
-   if(!(base_point * order).is_zero()) {
-      return false;
+   // Reject if [cofactor]G is the identity. pcurves does not support cofactor != 1
+   // so this can only matter when the legacy backend is in use.
+   if(has_cofactor()) {
+      const EC_Point& base_point = get_base_point();
+      if((base_point * get_cofactor()).is_zero()) {
+         return false;
+      }
    }
 #endif
 
