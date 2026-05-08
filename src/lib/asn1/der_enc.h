@@ -198,7 +198,21 @@ class BOTAN_PUBLIC_API(2, 0) DER_Encoder final {
 
       DER_Encoder& add_object(ASN1_Type type_tag, ASN1_Class class_tag, uint8_t val);
 
+      /**
+      * Encode `value` and emit just its body bytes under an IMPLICIT
+      * `type_tag`/`class_tag` (e.g. for `[N] IMPLICIT OBJECT IDENTIFIER` where the
+      * body is an OID's arc bytes but the tag must be `[N]`).
+      */
+      template <typename T>
+      DER_Encoder& encode_implicit(const T& value, ASN1_Type type_tag, ASN1_Class class_tag) {
+         std::vector<uint8_t> tlv;
+         DER_Encoder(tlv).encode(value);
+         return add_object_tlv(type_tag, class_tag, std::move(tlv));
+      }
+
    private:
+      DER_Encoder& add_object_tlv(ASN1_Type type_tag, ASN1_Class class_tag, std::vector<uint8_t> tlv);
+
       class DER_Sequence final {
          public:
             uint32_t tag_of() const;

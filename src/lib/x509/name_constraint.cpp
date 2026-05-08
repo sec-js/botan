@@ -454,7 +454,7 @@ bool NameConstraints::is_permitted(const X509_Certificate& cert, bool reject_unk
       if(m_permitted_name_types.contains(GeneralName::NameType::Unknown)) {
          return false;
       }
-      if(m_permitted_name_types.contains(GeneralName::NameType::Other) && !alt_name.other_names().empty()) {
+      if(m_permitted_name_types.contains(GeneralName::NameType::Other) && !alt_name.other_name_values().empty()) {
          return false;
       }
       if(m_permitted_name_types.contains(GeneralName::NameType::URI) && !alt_name.uris().empty()) {
@@ -620,7 +620,7 @@ bool NameConstraints::is_excluded(const X509_Certificate& cert, bool reject_unkn
    if(reject_unknown) {
       // This is one is overly broad: we should just reject if there is a name constraint
       // with the same OID as one of the other names
-      if(m_excluded_name_types.contains(GeneralName::NameType::Other) && !alt_name.other_names().empty()) {
+      if(m_excluded_name_types.contains(GeneralName::NameType::Other) && !alt_name.other_name_values().empty()) {
          return true;
       }
       if(m_excluded_name_types.contains(GeneralName::NameType::URI) && !alt_name.uris().empty()) {

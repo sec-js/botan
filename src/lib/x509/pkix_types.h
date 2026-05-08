@@ -143,6 +143,32 @@ BOTAN_PUBLIC_API(2, 0) std::istream& operator>>(std::istream& in, X509_DN& dn);
 */
 class BOTAN_PUBLIC_API(2, 0) AlternativeName final : public ASN1_Object {
    public:
+      /// An "OtherName" GeneralName entry: type-id OID and the inner ANY value as raw BER
+      class OtherNameValue final {
+         public:
+            const OID& oid() const { return m_oid; }
+
+            std::span<const uint8_t> value() const { return m_value; }
+
+            bool operator<(const OtherNameValue& other) const {
+               if(oid() != other.oid()) {
+                  return oid() < other.oid();
+               }
+               return m_value < other.m_value;
+            }
+
+         private:
+            friend class AlternativeName;
+
+            OtherNameValue(const OID& oid, std::vector<uint8_t> value) : m_oid(oid), m_value(std::move(value)) {}
+
+            OtherNameValue(const OID& oid, std::span<const uint8_t> value) :
+                  m_oid(oid), m_value(value.begin(), value.end()) {}
+
+            OID m_oid;
+            std::vector<uint8_t> m_value;
+      };
+
       void encode_into(DER_Encoder& to) const override;
       void decode_from(BER_Decoder& from) override;
 
@@ -160,6 +186,15 @@ class BOTAN_PUBLIC_API(2, 0) AlternativeName final : public ASN1_Object {
 
       /// Add an "OtherName" identified by object identifier to this AlternativeName
       void add_other_name(const OID& oid, const ASN1_String& value);
+
+      /// Add an "OtherName" with arbitrary inner value, given as raw BER bytes
+      ///
+      /// `value` must be a complete BER-encoded object (tag + length + content)
+      /// representing the inner ANY value of the OtherName.
+      void add_other_name_value(const OID& oid, std::span<const uint8_t> value);
+
+      /// Add a registeredID (RFC 5280 [8])
+      void add_registered_id(const OID& oid);
 
       /// Add a directory name to this AlternativeName
       void add_dn(const X509_DN& dn);
@@ -188,11 +223,17 @@ class BOTAN_PUBLIC_API(2, 0) AlternativeName final : public ASN1_Object {
       /// Return the set of IPv6 addresses included in this alternative name
       const std::set<IPv6Address>& ipv6_address() const { return m_ipv6_addr; }
 
-      /// Return the set of "other names" included in this alternative name
-      BOTAN_DEPRECATED("Support for other names is deprecated")
+      /// Return the set of "other names" whose value was a recognized ASN1_String type
+      BOTAN_DEPRECATED("Use AlternativeName::other_name_values")
       const std::set<std::pair<OID, ASN1_String>>& other_names() const {
          return m_othernames;
       }
+
+      /// Return all "OtherName" entries with their inner ANY value as raw BER
+      const std::set<OtherNameValue>& other_name_values() const { return m_other_name_values; }
+
+      /// Return the set of registeredID OIDs
+      const std::set<OID>& registered_ids() const { return m_registered_ids; }
 
       /// Return the set of directory names included in this alternative name
       const std::set<X509_DN>& directory_names() const { return m_dn_names; }
@@ -246,6 +287,8 @@ class BOTAN_PUBLIC_API(2, 0) AlternativeName final : public ASN1_Object {
       std::set<IPv6Address> m_ipv6_addr;
       std::set<X509_DN> m_dn_names;
       std::set<std::pair<OID, ASN1_String>> m_othernames;
+      std::set<OtherNameValue> m_other_name_values;
+      std::set<OID> m_registered_ids;
 };
 
 /**

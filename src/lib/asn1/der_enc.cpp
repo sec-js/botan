@@ -211,6 +211,33 @@ DER_Encoder& DER_Encoder::raw_bytes(const uint8_t bytes[], size_t length) {
    return (*this);
 }
 
+DER_Encoder& DER_Encoder::add_object_tlv(ASN1_Type type_tag, ASN1_Class class_tag, std::vector<uint8_t> tlv) {
+   // `tlv` was just produced by us via DER_Encoder, so it's a single
+   // well-formed TLV. Skip over the tag and length bytes (without
+   // reinterpreting them) to find the body offset.
+   BOTAN_ASSERT_NOMSG(!tlv.empty());
+   size_t off = 1;
+   // Multi-byte tag form (X.690 8.1.2.4): low 5 bits set to 0x1F, then
+   // continuation bytes whose MSB is 1 except the last.
+   if((tlv[0] & 0x1F) == 0x1F) {
+      while(off < tlv.size() && (tlv[off] & 0x80) != 0) {
+         ++off;
+      }
+      BOTAN_ASSERT_NOMSG(off < tlv.size());
+      ++off;
+   }
+   // Length: short form is one byte; long form (MSB set) names the
+   // number of length-of-length bytes that follow.
+   BOTAN_ASSERT_NOMSG(off < tlv.size());
+   const uint8_t len_byte = tlv[off++];
+   if((len_byte & 0x80) != 0) {
+      off += (len_byte & 0x7F);
+   }
+   BOTAN_ASSERT_NOMSG(off <= tlv.size());
+
+   return add_object(type_tag, class_tag, std::span<const uint8_t>(tlv).subspan(off));
+}
+
 /*
 * Write the encoding of the byte(s)
 */
