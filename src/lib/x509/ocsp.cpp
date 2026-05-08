@@ -257,7 +257,7 @@ Response::Response(const uint8_t response_bits[], size_t response_bits_len) :
        unauthorized          (6)   -- Request unauthorized
    }
    */
-   if(resp_status >= 7) {
+   if(resp_status == 4 || resp_status >= 7) {
       throw Decoding_Error("Unknown OCSPResponseStatus code");
    }
 
