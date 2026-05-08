@@ -132,7 +132,7 @@ class DH_KA_Operation final : public PK_Ops::Key_Agreement_with_KDF {
 secure_vector<uint8_t> DH_KA_Operation::raw_agree(const uint8_t w[], size_t w_len) {
    BigInt v = BigInt::from_bytes(std::span{w, w_len});
 
-   if(v <= 1 || v >= group().get_p()) {
+   if(v <= 1 || v >= group().get_p() - 1) {
       throw Invalid_Argument("DH agreement - invalid key provided");
    }
 

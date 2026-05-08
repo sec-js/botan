@@ -418,7 +418,7 @@ bool DL_Group::verify_public_element(const BigInt& y) const {
    const BigInt& p = get_p();
    const BigInt& q = get_q();
 
-   if(y <= 1 || y >= p) {
+   if(y <= 1 || y >= p - 1) {
       return false;
    }
 
