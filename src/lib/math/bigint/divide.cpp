@@ -22,7 +22,11 @@ void sign_fixup(const BigInt& x, const BigInt& y, BigInt& q, BigInt& r) {
    q.cond_flip_sign(x.sign() != y.sign());
 
    if(x.signum() < 0 && r.signum() != 0) {
-      q -= 1;
+      if(y.signum() > 0) {
+         q -= 1;
+      } else {
+         q += 1;
+      }
       r = y.abs() - r;
    }
 }
