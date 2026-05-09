@@ -698,7 +698,10 @@ class BOTAN_PUBLIC_API(2, 0) BigInt final {
        */
       BOTAN_DEPRECATED("Deprecated no replacement") void grow_to(size_t n) const { m_data.grow_to(n); }
 
-      BOTAN_DEPRECATED("Deprecated no replacement") void resize(size_t s) { m_data.resize(s); }
+      BOTAN_DEPRECATED("Deprecated no replacement") void resize(size_t s) {
+         m_data.resize(s);
+         set_sign(sign());  // handle possible zero
+      }
 
       /**
        * Fill BigInt with a random number with size of bitsize
@@ -1076,7 +1079,13 @@ class BOTAN_PUBLIC_API(2, 0) BigInt final {
                m_reg.resize(words);
             }
 
-            void resize(size_t s) { m_reg.resize(s); }
+            void resize(size_t s) {
+               const bool shrinking = s < m_reg.size();
+               m_reg.resize(s);
+               if(shrinking) {
+                  invalidate_sig_words();
+               }
+            }
 
             void swap(Data& other) noexcept {
                m_reg.swap(other.m_reg);
