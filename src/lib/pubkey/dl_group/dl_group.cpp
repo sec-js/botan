@@ -620,7 +620,9 @@ BigInt DL_Group::power_g_p(const BigInt& x, size_t max_x_bits) const {
 }
 
 BigInt DL_Group::power_b_p(const BigInt& b, const BigInt& x) const {
-   return this->power_b_p(b, x, data().p_bits());
+   // This leaks information about x if x > p, but that is an exceptional case that
+   // should not occur in normal usage
+   return this->power_b_p(b, x, std::max(x.bits(), data().p_bits()));
 }
 
 BigInt DL_Group::power_b_p(const BigInt& b, const BigInt& x, size_t max_x_bits) const {
