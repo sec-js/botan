@@ -521,6 +521,27 @@ EC_Group::EC_Group(const BigInt& p,
                    const BigInt& order,
                    const BigInt& cofactor,
                    const OID& oid) {
+   BOTAN_ARG_CHECK(a >= 0 && a < p, "EC_Group a is invalid");
+   BOTAN_ARG_CHECK(b > 0 && b < p, "EC_Group b is invalid");
+   BOTAN_ARG_CHECK(base_x >= 0 && base_x < p, "EC_Group base_x is invalid");
+   BOTAN_ARG_CHECK(base_y >= 0 && base_y < p, "EC_Group base_y is invalid");
+
+   auto mod_p = Barrett_Reduction::for_public_modulus(p);
+   BOTAN_ARG_CHECK(is_bailie_psw_probable_prime(p, mod_p), "EC_Group p is not prime");
+
+   auto mod_order = Barrett_Reduction::for_public_modulus(order);
+   BOTAN_ARG_CHECK(is_bailie_psw_probable_prime(order, mod_order), "EC_Group order is not prime");
+
+   // Check that 4*a^3 + 27*b^2 != 0
+   const auto discriminant = mod_p.reduce(mod_p.multiply(BigInt::from_s32(4), mod_p.cube(a)) +
+                                          mod_p.multiply(BigInt::from_s32(27), mod_p.square(b)));
+   BOTAN_ARG_CHECK(discriminant != 0, "EC_Group discriminant is invalid");
+
+   // Check that the generator (base_x,base_y) is on the curve; y^2 = x^3 + a*x + b
+   auto y2 = mod_p.square(base_y);
+   auto x3_ax_b = mod_p.reduce(mod_p.cube(base_x) + mod_p.multiply(a, base_x) + b);
+   BOTAN_ARG_CHECK(y2 == x3_ax_b, "EC_Group generator is not on the curve");
+
    if(oid.has_value()) {
       m_data = ec_group_data().lookup_or_create(
          p, a, b, base_x, base_y, order, cofactor, oid, EC_Group_Source::ExternalSource);
