@@ -268,7 +268,7 @@ inline constexpr void bigint_monty_maybe_sub(W z[N], W x0, const W x[N], const W
 * Otherwise compute z = y - x
 * No borrow is possible since the result is always >= 0
 *
-* Returns a Mask: |1| if x >= y or |0| if x < y
+* Returns a Mask: |1| if x < y or |0| if x >= y
 * @param z output array of at least N words
 * @param x input array of N words
 * @param y input array of N words
