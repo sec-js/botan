@@ -213,7 +213,7 @@ Montgomery_Int Montgomery_Int::from_wide_int(const Montgomery_Params& params, co
 
 Montgomery_Int::Montgomery_Int(const Montgomery_Params& params, const BigInt& v, bool redc_needed) :
       m_params(params), m_v(m_params.p_words()) {
-   BOTAN_ASSERT_NOMSG(v < m_params.p());
+   BOTAN_ARG_CHECK(v.signum() >= 0 && v < m_params.p(), "Input out of range");
 
    const size_t p_size = m_params.p_words();
 

@@ -89,6 +89,7 @@ void const_time_lookup(secure_vector<word>& output, const std::vector<Montgomery
 }  // namespace
 
 Montgomery_Int Montgomery_Exponentiation_State::exponentiation(const BigInt& scalar, size_t max_k_bits) const {
+   BOTAN_ARG_CHECK(scalar.signum() >= 0, "Invalid scalar for Montgomery exponentiation");
    BOTAN_DEBUG_ASSERT(scalar.bits() <= max_k_bits);
    // TODO add a const-time implementation of above assert and use it in release builds
 
@@ -148,7 +149,7 @@ std::shared_ptr<const Montgomery_Exponentiation_State> monty_precompute(const Mo
                                                                         const BigInt& g,
                                                                         size_t window_bits,
                                                                         bool const_time) {
-   BOTAN_ARG_CHECK(g < params.p(), "Montgomery base too big");
+   BOTAN_ARG_CHECK(g.signum() >= 0 && g < params.p(), "Montgomery exponentiation base integer out of range");
    const Montgomery_Int monty_g(params, g);
    return monty_precompute(monty_g, window_bits, const_time);
 }
