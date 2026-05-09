@@ -452,7 +452,9 @@ void BigInt::ct_cond_add(bool predicate, const BigInt& value) {
    }
    const size_t v_words = value.sig_words();
 
-   this->grow_to(1 + v_words);
+   // The carry can propagate through every existing word of *this, so the
+   // output needs one slot above whichever input is wider.
+   this->grow_to(std::max(this->size(), v_words) + 1);
 
    const auto mask = CT::Mask<word>::expand(static_cast<word>(predicate)).value();
 
