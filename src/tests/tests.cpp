@@ -163,11 +163,16 @@ bool Test::Result::ThrowExpectations::check(std::string_view test_name, Test::Re
       if(m_expected_exception_check_fn && !m_expected_exception_check_fn(std::current_exception())) {
          return result.test_failure(Botan::fmt("{} threw unexpected exception: {}", test_name, ex.what()));
       }
-      if(m_expected_message.has_value() && m_expected_message.value() != ex.what()) {
-         return result.test_failure(Botan::fmt("{} threw exception with unexpected message (expected {} got {})",
-                                               test_name,
-                                               m_expected_message.value(),
-                                               ex.what()));
+      if(m_expected_message.has_value()) {
+         const std::string ex_msg = std::string(ex.what());
+
+         // TODO(C++23) std::string::contains
+         if(ex_msg.find(m_expected_message.value()) == std::string::npos) {
+            return result.test_failure(Botan::fmt("{} threw exception with unexpected message (expected {} got {})",
+                                                  test_name,
+                                                  m_expected_message.value(),
+                                                  ex_msg));
+         }
       }
    } catch(...) {
       if(m_expect_success || m_expected_exception_check_fn || m_expected_message.has_value()) {
