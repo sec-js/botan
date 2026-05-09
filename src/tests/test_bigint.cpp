@@ -116,6 +116,15 @@ class BigInt_Unit_Tests final : public Test {
          result.test_is_true("P is prime", Botan::is_prime(safe_prime, *rng));
          result.test_is_true("(P-1)/2 is prime", Botan::is_prime((safe_prime - 1) / 2, *rng));
 
+         for(const size_t modulo : {3, 5, 7, 11}) {
+            const size_t equiv = (modulo - 1) / 2;
+            const BigInt q = Botan::random_prime(*rng, 64, BigInt::zero(), equiv, modulo);
+            result.test_is_true(
+               "random_prime returned a prime for equiv=" + std::to_string(equiv) + " modulo=" + std::to_string(modulo),
+               Botan::is_prime(q, *rng));
+            result.test_bn_eq("congruence holds", q % BigInt::from_word(modulo), BigInt::from_word(equiv));
+         }
+
          return result;
       }
 
