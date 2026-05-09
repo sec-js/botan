@@ -9,6 +9,7 @@
 #include <botan/bigint.h>
 #include <botan/exceptn.h>
 #include <botan/rng.h>
+#include <botan/internal/barrett.h>
 #include <botan/internal/buffer_stuffer.h>
 #include <botan/internal/ct_utils.h>
 #include <botan/internal/loadstor.h>
@@ -1731,6 +1732,14 @@ std::shared_ptr<const PrimeOrderCurve> PCurveInstance::from_params(
 
    // The bit length of the field and order being the same simplifies things
    if(p_bits != order.bits()) {
+      return {};
+   }
+
+   // Check that the (x,y) generator point is on the curve
+   auto mod_p = Barrett_Reduction::for_public_modulus(p);
+   const BigInt y2 = mod_p.square(base_y);
+   const BigInt x3_ax_b = mod_p.reduce(mod_p.cube(base_x) + mod_p.multiply(a, base_x) + b);
+   if(y2 != x3_ax_b) {
       return {};
    }
 

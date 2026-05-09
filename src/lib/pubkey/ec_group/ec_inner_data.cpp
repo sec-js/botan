@@ -7,6 +7,7 @@
 #include <botan/internal/ec_inner_data.h>
 
 #include <botan/der_enc.h>
+#include <botan/internal/barrett.h>
 #include <botan/internal/ec_inner_pc.h>
 #include <botan/internal/fmt.h>
 #include <botan/internal/pcurves.h>
@@ -57,6 +58,14 @@ EC_Group_Data::EC_Group_Data(const BigInt& p,
       m_has_cofactor(m_cofactor != 1),
       m_order_is_less_than_p(m_order < p),
       m_source(source) {
+   // Verify the generator (x, y) satisfies y^2 = x^3 + a*x + b (mod p)
+   auto mod_p = Barrett_Reduction::for_public_modulus(p);
+   const BigInt y2 = mod_p.square(g_y);
+   const BigInt x3_ax_b = mod_p.reduce(mod_p.cube(g_x) + mod_p.multiply(a, g_x) + b);
+   if(y2 != x3_ax_b) {
+      throw Invalid_Argument("EC_Group generator is not on the curve");
+   }
+
    // TODO(Botan4) we can assume/assert the OID is set
    if(!m_oid.empty()) {
       DER_Encoder der(m_der_named_curve);
