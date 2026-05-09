@@ -251,6 +251,10 @@ word BigInt::operator%=(word mod) {
 * Left Shift Operator
 */
 BigInt& BigInt::operator<<=(size_t shift) {
+   if(shift >= 65536) {
+      throw Invalid_Argument("BigInt left shift count too large");
+   }
+
    const size_t sw = sig_words();
    const size_t new_size = sw + (shift + WordInfo<word>::bits - 1) / WordInfo<word>::bits;
 

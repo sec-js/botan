@@ -487,7 +487,7 @@ void BigInt::ct_shift_left(size_t shift) {
    // shift results only when they are within the shift range.
    for(size_t i = 0; i < iterations; ++i) {
       // Shift left by 1 bit, dropping overflow
-      bigint_shl2(ws.data(), _data(), n, 1);
+      bigint_shl2(ws.data(), n + 1, _data(), n, 1);
       ws[n] = 0;
 
       // Conditionally assign the bit-shift result
@@ -497,7 +497,7 @@ void BigInt::ct_shift_left(size_t shift) {
       }
 
       // Shift left by 1 word, dropping the most significant word
-      bigint_shl2(ws.data(), _data(), n - 1 /* ignore msw */, WordInfo<word>::bits);
+      bigint_shl2(ws.data(), n + 1, _data(), n - 1 /* ignore msw */, WordInfo<word>::bits);
       ws[0] = 0;
 
       // Conditionally assign the word-shift result
