@@ -596,7 +596,7 @@ class divide_precomp final {
                W quotient = 0;
                W remainder = 0;
                // NOLINTNEXTLINE(*-no-assembler)
-               asm("divq %[v]" : "=a"(quotient), "=d"(remainder) : [v] "r"(m_divisor), "a"(n0), "d"(n1));
+               asm("divq %[v]" : "=a"(quotient), "=d"(remainder) : [v] "r"(m_divisor), "a"(n0), "d"(n1) : "cc");
                return quotient;
             }
 #endif

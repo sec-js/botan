@@ -400,7 +400,7 @@ inline constexpr auto word8_linmul3(W z[8], const W x[8], W y, W carry) -> W {
       asm(DO_8_TIMES(LINMUL_OP, "z")
           : [carry] "=r"(carry)
           : [z] "r"(z), [x] "r"(x), [y] "rm"(y), "0"(carry)
-          : "cc", "%rax", "%rdx");
+          : "cc", "%rax", "%rdx", "memory");
       return carry;
    }
 #endif
@@ -426,7 +426,7 @@ inline constexpr auto word8_madd3(W z[8], const W x[8], W y, W carry) -> W {
       asm(DO_8_TIMES(MULADD_OP, "")
           : [carry] "=r"(carry)
           : [z] "r"(z), [x] "r"(x), [y] "rm"(y), "0"(carry)
-          : "cc", "%rax", "%rdx");
+          : "cc", "%rax", "%rdx", "memory");
       return carry;
    }
 #endif
