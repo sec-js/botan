@@ -554,6 +554,8 @@ class RSA_Private_Operation {
             m_max_d2_bits(m_private->q_bits() + m_blinding_bits) {}
 
       void raw_op(std::span<uint8_t> out, std::span<const uint8_t> input) {
+         // These early exits are fine because the invalidity is based only
+         // on public information, namely the ciphertext and the public modulus
          if(input.size() > public_modulus_bytes()) {
             throw Decoding_Error("RSA input is too long for this key");
          }
@@ -561,6 +563,7 @@ class RSA_Private_Operation {
          if(input_bn.is_zero() || input_bn >= m_public->get_n()) {
             throw Decoding_Error("RSA input is not in the valid range");
          }
+
          // TODO: This should be a function on blinder
          // BigInt Blinder::run_blinded_function(std::function<BigInt, BigInt> fn, const BigInt& input);
 
