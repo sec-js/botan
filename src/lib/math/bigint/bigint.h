@@ -220,7 +220,7 @@ class BOTAN_PUBLIC_API(2, 0) BigInt final {
        * += operator
        * @param y the BigInt to add to this
        */
-      BigInt& operator+=(const BigInt& y) { return add(y._data(), y.sig_words(), y.sign()); }
+      BigInt& operator+=(const BigInt& y);
 
       /**
        * += operator
@@ -232,7 +232,7 @@ class BOTAN_PUBLIC_API(2, 0) BigInt final {
        * -= operator
        * @param y the BigInt to subtract from this
        */
-      BigInt& operator-=(const BigInt& y) { return sub(y._data(), y.sig_words(), y.sign()); }
+      BigInt& operator-=(const BigInt& y);
 
       /**
        * -= operator
