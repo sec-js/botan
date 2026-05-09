@@ -19,6 +19,7 @@
 #include <botan/internal/monty_exp.h>
 #include <botan/internal/primality.h>
 #include <botan/internal/workfactor.h>
+#include <algorithm>
 #include <string_view>
 
 namespace Botan {
@@ -70,7 +71,9 @@ class DL_Group_Data final {
             m_monty(monty_precompute(m_monty_params, m_g, /*window bits=*/4)),
             m_p_bits(p.bits()),
             m_q_bits(q.bits()),
-            m_estimated_strength(dl_work_factor(m_p_bits)),
+            // For DL crypto in a prime-order subgroup, security is bounded by
+            // both the NFS cost in Z_p* and Pollard rho in the q-order subgroup.
+            m_estimated_strength(std::min(dl_work_factor(m_p_bits), m_q_bits / 2)),
             m_exponent_bits(dl_exponent_size(m_p_bits)),
             m_source(source) {}
 
