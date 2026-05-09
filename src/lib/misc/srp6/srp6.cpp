@@ -117,7 +117,9 @@ std::pair<BigInt, SymmetricKey> srp6_client_agree(std::string_view identifier,
 
    const BigInt a_ux = a + u * x;
 
-   const size_t max_aux_bits = std::max<size_t>(a_bits + 1, 2 * 8 * hash_fn->output_length());
+   // a < 2^a_bits and u*x < 2^(2H) where H is the hash output bits, so
+   // a + u*x < 2^(max(a_bits, 2H) + 1).
+   const size_t max_aux_bits = std::max<size_t>(a_bits, 2 * 8 * hash_fn->output_length()) + 1;
    BOTAN_ASSERT_NOMSG(max_aux_bits >= a_ux.bits());
 
    const BigInt S = group.power_b_p(B_k_g_x_p, a_ux, max_aux_bits);
