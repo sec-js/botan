@@ -375,7 +375,9 @@ FrodoKEM_PrivateKey::FrodoKEM_PrivateKey(std::span<const uint8_t> sk, FrodoKEMMo
    m_public = std::make_shared<FrodoKEM_PublicKeyInternal>(std::move(constants), std::move(seed_a), std::move(b));
    m_private = std::make_shared<FrodoKEM_PrivateKeyInternal>(std::move(s), std::move(s_trans));
 
-   BOTAN_STATE_CHECK(pkh == m_public->hash());
+   if(pkh != m_public->hash()) {
+      throw Decoding_Error("FrodoKEM embedded public key hash did not match recomputed value");
+   }
 }
 
 FrodoKEM_PrivateKey::FrodoKEM_PrivateKey(const AlgorithmIdentifier& alg_id, std::span<const uint8_t> key_bits) :
