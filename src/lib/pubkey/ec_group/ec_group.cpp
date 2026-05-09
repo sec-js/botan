@@ -64,6 +64,16 @@ class EC_Group_Data_Map final {
          std::shared_ptr<EC_Group_Data> data = EC_Group::EC_group_info(oid);
 
          if(data) {
+            // The requested OID may be an alias for a curve whose canonical OID differs
+            // TODO(Botan4) remove this once we require exactly one canonical OID per curve
+            if(data->oid() != oid) {
+               for(const auto& i : m_registered_curves) {
+                  if(i->oid() == data->oid()) {
+                     return i;
+                  }
+               }
+            }
+
             m_registered_curves.push_back(data);
             return data;
          }

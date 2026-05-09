@@ -19,6 +19,7 @@
    #include <botan/x509_key.h>
    #include <botan/internal/barrett.h>
    #include <botan/internal/ec_inner_data.h>
+   #include <array>
    #if defined(BOTAN_HAS_ECDSA)
       #include <botan/pk_algs.h>
    #endif
@@ -441,6 +442,7 @@ class EC_Group_Registration_Tests final : public Test {
             results.push_back(test_ec_group_off_curve_generator());
             results.push_back(test_ec_group_duplicate_orders());
             results.push_back(test_ec_group_registration_with_custom_oid());
+            results.push_back(test_ec_group_alias_oid_cache());
             results.push_back(test_ec_group_unregistration());
             results.push_back(test_supports_named_group_with_registration());
          }
@@ -672,6 +674,53 @@ class EC_Group_Registration_Tests final : public Test {
                              Botan::EC_Group::unregister(custom_oid));
          result.test_is_false("After unregister the custom name is not supported",
                               Botan::EC_Group::supports_named_group(custom_name));
+
+         return result;
+      }
+
+      Test::Result test_ec_group_alias_oid_cache() {
+         Test::Result result("EC_Group lookup by alias OID does not duplicate cache entry");
+
+         // TODO(Botan4) once groups are required to have a single canonical OID this test can be removed
+
+         if(!Botan::EC_Group::known_named_groups().contains("gost_256A")) {
+            result.test_note("Skipping: gost_256A not enabled in this build");
+            return result;
+         }
+
+         const Botan::OID gost_canonical("1.2.643.7.1.2.1.1.1");
+         const std::array<Botan::OID, 2> aliases = {
+            Botan::OID("1.2.643.2.2.35.1"),
+            Botan::OID("1.2.643.2.2.36.0"),
+         };
+
+         // Exercise every ordering of {canonical, alias_a, alias_b} as the first lookup
+         // to confirm the cache dedup works regardless of which OID populates it first.
+         const std::array<std::array<Botan::OID, 3>, 3> orderings = {{
+            {gost_canonical, aliases[0], aliases[1]},
+            {aliases[0], gost_canonical, aliases[1]},
+            {aliases[1], aliases[0], gost_canonical},
+         }};
+
+         for(const auto& order : orderings) {
+            Botan::EC_Group::clear_registered_curve_data();
+
+            const auto first = Botan::EC_Group::from_OID(order[0]);
+            const auto second = Botan::EC_Group::from_OID(order[1]);
+            const auto third = Botan::EC_Group::from_OID(order[2]);
+
+            result.test_is_true("First lookup yields canonical OID", first.get_curve_oid() == gost_canonical);
+            result.test_is_true("Second lookup yields canonical OID", second.get_curve_oid() == gost_canonical);
+            result.test_is_true("Third lookup yields canonical OID", third.get_curve_oid() == gost_canonical);
+
+            result.test_is_true("Second lookup shares cached data with first", second._data() == first._data());
+            result.test_is_true("Third lookup shares cached data with first", third._data() == first._data());
+
+            for(size_t i = 0; i != 16; ++i) {
+               const auto repeated = Botan::EC_Group::from_OID(order[i % 3]);
+               result.test_is_true("Repeated lookup is stable", repeated._data() == first._data());
+            }
+         }
 
          return result;
       }
