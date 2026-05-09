@@ -196,6 +196,8 @@ void Montgomery_Params::sqr(BigInt& z, std::span<const word> x, secure_vector<wo
    bigint_monty_redc_inplace(z.mutable_data(), this->p()._data(), p_size, this->p_dash(), ws.data(), ws.size());
 }
 
+Montgomery_Int::Montgomery_Int(const Montgomery_Params& params) : m_params(params), m_v(m_params.p_words()) {}
+
 Montgomery_Int::Montgomery_Int(const Montgomery_Params& params, secure_vector<word> words) :
       m_params(params), m_v(std::move(words)) {
    BOTAN_ASSERT_NOMSG(m_v.size() == m_params.p_words());
