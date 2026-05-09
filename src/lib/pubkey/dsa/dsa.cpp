@@ -246,6 +246,11 @@ bool DSA_Verification_Operation::verify(std::span<const uint8_t> input, std::spa
 
    s = group.inverse_mod_q(s);
 
+   // Since we already checked for s == 0 above this shouldn't happen
+   if(s.is_zero()) {
+      return false;
+   }
+
    const BigInt sr = group.multiply_mod_q(s, r);
    const BigInt si = group.multiply_mod_q(s, i);
 
