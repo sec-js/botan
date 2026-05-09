@@ -824,7 +824,7 @@ Multiple Precision Integers
 .. cpp:function:: int botan_mp_mod_inverse(botan_mp_t out, botan_mp_t in, botan_mp_t modulus)
 
    Compute modular inverse. If no modular inverse exists (for instance because ``in`` and
-   ``modulus`` are not relatively prime), then sets ``out`` to -1.
+   ``modulus`` are not relatively prime), then sets ``out`` to 0.
 
 .. cpp:function:: int botan_mp_rand_bits(botan_mp_t rand_out, botan_rng_t rng, size_t bits)
 
