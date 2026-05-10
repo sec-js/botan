@@ -338,9 +338,9 @@ def cli_is_prime_tests(_tmp_dir):
     test_cli("is_prime", "548950623407687320763", "548950623407687320763 is probably prime")
 
 def cli_gen_prime_tests(_tmp_dir):
-    test_cli("gen_prime", "64", "15568813029901363163")
-    test_cli("gen_prime", "128", "287193909494025008847286845478788766073")
-    test_cli("gen_prime", ["--hex", "64"], "0xD80F88F6ADBE67DB")
+    test_cli("gen_prime", "64", "15568813029901362643")
+    test_cli("gen_prime", "128", "287193909494025008847286845478788765881")
+    test_cli("gen_prime", ["--hex", "64"], "0xD80F88F6ADBE65D3")
 
 def cli_cycle_counter(_tmp_dir):
     output = test_cli("cpu_clock", None, None)
@@ -457,13 +457,13 @@ def cli_argon2_tests(_tmp_dir):
 def cli_gen_dl_group_tests(_tmp_dir):
 
     pem = """-----BEGIN X9.42 DH PARAMETERS-----
-MIIBJAKBgwTw7LQiLkXJsrgMVQxTPlWaQlYz/raZ+5RtIZe4YluQgRQGPFADLZ/t
-TOYzuIzZJFOcdKtEtrVkxZRGSkjZwKFKLUD6fzSjoC2M2EHktK/y5HsvxBxL4tKr
-q1ffbyPQi+iBLYTZAXygvxj2vWyrvA+/w4nbt1fStCHTDhWjLWqFpV9nAoGDAKzA
-HUu/IRl7OiUtW/dz36gzEJnaYtz4ZtJl0FG8RJiOe02lD8myqW2sVzYqMvKD0LGx
-x9fdSKC1G+aZ/NWtqrQjb66Daf7b0ddDx+bfWTWJ2dOtZd8IL2rmQQJm+JogDi9i
-huVYFicDNQGzi+nEKAzrZ1L/VxtiSiw/qw0IyOuVtz8CFjgPiPatvmWssQw2AuZ9
-mFvAZ/8wal0=
+MIIBJAKBgwd7rmVd5CnnwyuhpoAF9NAK67SGewOREjxUAtv2crGCuVnj1JSbTLnB
+XlbNyB9qzTr0yl6Gi4NKNChFYJKwIu/0sVxm+bkpbF3GqjCjh5848+2n+axNUPUf
+oaLUZ2N3Nqh6yMGMPgp56+4DzuyN1t8OxkvNduWVBlkm3Jl2ae9m94NjAoGDAz+k
+VeNOBNf3sDZ76+lLR2yonEEw/fEUsd0AgabNOqb9ZHcImT0D3Th+fYj+LxL7m4Wp
+SVXVTdrMYnzVs1dlWZUjgPN0uZm7fxNwUKZGE9a71JEG3erPuJtptnx2SvyhFCSk
+0gZdWFCH5FKZWS5K3bxa0Mmm3ud2wghS19mMZE7WlRICFjgPiPatvmWssQw2AuZ9
+mFvAZ/8wZ90=
 -----END X9.42 DH PARAMETERS-----"""
 
     test_cli("gen_dl_group", ["--pbits=1043", "--qbits=174"], pem)

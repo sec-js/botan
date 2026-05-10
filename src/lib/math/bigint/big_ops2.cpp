@@ -13,6 +13,22 @@
 
 namespace Botan {
 
+BigInt& BigInt::operator+=(const BigInt& y) {
+   if(&y == this) {
+      return *this <<= 1;
+   }
+   return add(y._data(), y.sig_words(), y.sign());
+}
+
+BigInt& BigInt::operator-=(const BigInt& y) {
+   if(&y == this) {
+      this->clear();
+      this->set_sign(Positive);
+      return *this;
+   }
+   return sub(y._data(), y.sig_words(), y.sign());
+}
+
 BigInt& BigInt::add(const word y[], size_t y_words, Sign y_sign) {
    const size_t x_sw = sig_words();
 

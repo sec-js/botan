@@ -268,7 +268,7 @@ inline constexpr void bigint_monty_maybe_sub(W z[N], W x0, const W x[N], const W
 * Otherwise compute z = y - x
 * No borrow is possible since the result is always >= 0
 *
-* Returns a Mask: |1| if x >= y or |0| if x < y
+* Returns a Mask: |1| if x < y or |0| if x >= y
 * @param z output array of at least N words
 * @param x input array of N words
 * @param y input array of N words
@@ -596,7 +596,7 @@ class divide_precomp final {
                W quotient = 0;
                W remainder = 0;
                // NOLINTNEXTLINE(*-no-assembler)
-               asm("divq %[v]" : "=a"(quotient), "=d"(remainder) : [v] "r"(m_divisor), "a"(n0), "d"(n1));
+               asm("divq %[v]" : "=a"(quotient), "=d"(remainder) : [v] "r"(m_divisor), "a"(n0), "d"(n1) : "cc");
                return quotient;
             }
 #endif
@@ -724,6 +724,7 @@ inline constexpr auto monty_inverse(W a) -> W {
 template <size_t S, WordType W, size_t N>
 inline constexpr W shift_left(std::array<W, N>& x) {
    static_assert(N >= 1, "Invalid input size");
+   static_assert(S > 0, "Zero shift not supported");
    static_assert(S < WordInfo<W>::bits, "Shift too large");
 
    const W carry = x[N - 1] >> (WordInfo<W>::bits - S);
@@ -739,6 +740,7 @@ inline constexpr W shift_left(std::array<W, N>& x) {
 template <size_t S, WordType W, size_t N>
 inline constexpr W shift_right(std::array<W, N>& x) {
    static_assert(N >= 1, "Invalid input size");
+   static_assert(S > 0, "Zero shift not supported");
    static_assert(S < WordInfo<W>::bits, "Shift too large");
 
    const W carry = x[0] << (WordInfo<W>::bits - S);
@@ -762,6 +764,8 @@ constexpr auto hex_to_words(const char (&s)[N]) {
 
    // Round up to the next number of words that will fit the input
    const constexpr size_t S = (C + NPW - 1) / NPW;
+
+   static_assert(S > 0, "Input too small");
 
    auto hex2int = [](char c) -> int8_t {
       if(c >= '0' && c <= '9') {

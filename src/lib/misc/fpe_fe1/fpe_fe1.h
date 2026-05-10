@@ -26,7 +26,9 @@ class BOTAN_PUBLIC_API(2, 5) FPE_FE1 final : public SymmetricAlgorithm {
    public:
       /**
       * @param n the modulus. All plaintext and ciphertext values must be
-      *        less than this.
+      *        less than this. The value must not be prime and should be easily
+      *        factored into roughly equal size values. The common case is that
+      *        the modulus is a power of 10.
       * @param rounds the number of rounds to use. Must be at least 3.
       * @param compat_mode An error in versions before 2.5.0 chose incorrect
       *        values for a and b. Set compat_mode to true to select this version.
@@ -49,7 +51,7 @@ class BOTAN_PUBLIC_API(2, 5) FPE_FE1 final : public SymmetricAlgorithm {
 
       /**
       * Encrypt X from and onto the group Z_n using key and tweak
-      * @param x the plaintext to encrypt <= n
+      * @param x the plaintext to encrypt, where 0 <= x < n
       * @param tweak will modify the ciphertext
       * @param tweak_len length of tweak
       */
@@ -57,7 +59,7 @@ class BOTAN_PUBLIC_API(2, 5) FPE_FE1 final : public SymmetricAlgorithm {
 
       /**
       * Decrypt X from and onto the group Z_n using key and tweak
-      * @param x the ciphertext to encrypt <= n
+      * @param x the ciphertext to decrypt, where 0 <= x < n
       * @param tweak must match the value used to encrypt
       * @param tweak_len length of tweak
       */
@@ -81,6 +83,7 @@ class BOTAN_PUBLIC_API(2, 5) FPE_FE1 final : public SymmetricAlgorithm {
 
       std::unique_ptr<MessageAuthenticationCode> m_mac;
       std::vector<uint8_t> m_n_bytes;
+      BigInt m_n;
       BigInt m_a;
       BigInt m_b;
       size_t m_rounds;

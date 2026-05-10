@@ -62,21 +62,23 @@ void ct_divide(const BigInt& x, const BigInt& y, BigInt& q_out, BigInt& r_out) {
 
    const size_t x_bits = x.bits();
 
+   const size_t r_words = y_words + 1;
+
    BigInt q = BigInt::with_capacity(x_words);
-   BigInt r = BigInt::with_capacity(y_words);
-   BigInt t = BigInt::with_capacity(y_words);  // a temporary
+   BigInt r = BigInt::with_capacity(r_words);
+   BigInt t = BigInt::with_capacity(r_words);  // a temporary
 
    for(size_t i = 0; i != x_bits; ++i) {
       const size_t b = x_bits - 1 - i;
       const bool x_b = x.get_bit(b);
 
-      r <<= 1;
+      bigint_shl1(r.mutable_data(), r_words, r_words, 1);
       r.conditionally_set_bit(0, x_b);
 
-      const bool r_gte_y = bigint_sub3(t.mutable_data(), r._data(), r.size(), y._data(), y_words) == 0;
+      const bool r_gte_y = bigint_sub3(t.mutable_data(), r._data(), r_words, y._data(), y_words) == 0;
 
       q.conditionally_set_bit(b, r_gte_y);
-      r.ct_cond_swap(r_gte_y, t);
+      bigint_cnd_swap(static_cast<word>(r_gte_y), r.mutable_data(), t.mutable_data(), r_words);
    }
 
    sign_fixup(x, y, q, r);
@@ -199,22 +201,23 @@ BigInt ct_modulo(const BigInt& x, const BigInt& y) {
    }
 
    const size_t y_words = y.sig_words();
+   const size_t r_words = y_words + 1;
 
    const size_t x_bits = x.bits();
 
-   BigInt r = BigInt::with_capacity(y_words);
-   BigInt t = BigInt::with_capacity(y_words);
+   BigInt r = BigInt::with_capacity(r_words);
+   BigInt t = BigInt::with_capacity(r_words);
 
    for(size_t i = 0; i != x_bits; ++i) {
       const size_t b = x_bits - 1 - i;
       const bool x_b = x.get_bit(b);
 
-      r <<= 1;
+      bigint_shl1(r.mutable_data(), r_words, r_words, 1);
       r.conditionally_set_bit(0, x_b);
 
-      const bool r_gte_y = bigint_sub3(t.mutable_data(), r._data(), r.size(), y._data(), y_words) == 0;
+      const bool r_gte_y = bigint_sub3(t.mutable_data(), r._data(), r_words, y._data(), y_words) == 0;
 
-      r.ct_cond_swap(r_gte_y, t);
+      bigint_cnd_swap(static_cast<word>(r_gte_y), r.mutable_data(), t.mutable_data(), r_words);
    }
 
    if(x.signum() < 0) {

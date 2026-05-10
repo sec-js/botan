@@ -43,7 +43,7 @@ BigInt BigInt::from_s32(int32_t n) {
    if(n >= 0) {
       return BigInt::from_u64(static_cast<uint64_t>(n));
    } else {
-      return -BigInt::from_u64(static_cast<uint64_t>(-n));
+      return -BigInt::from_u64(static_cast<uint64_t>(-static_cast<int64_t>(n)));
    }
 }
 
@@ -452,7 +452,9 @@ void BigInt::ct_cond_add(bool predicate, const BigInt& value) {
    }
    const size_t v_words = value.sig_words();
 
-   this->grow_to(1 + v_words);
+   // The carry can propagate through every existing word of *this, so the
+   // output needs one slot above whichever input is wider.
+   this->grow_to(std::max(this->size(), v_words) + 1);
 
    const auto mask = CT::Mask<word>::expand(static_cast<word>(predicate)).value();
 

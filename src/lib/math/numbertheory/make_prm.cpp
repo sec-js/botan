@@ -104,6 +104,82 @@ bool no_small_multiples(const BigInt& v, const Prime_Sieve& sieve) {
 
 #endif
 
+BigInt random_prime_with_sieve(RandomNumberGenerator& rng,
+                               size_t bits,
+                               const BigInt& coprime,
+                               size_t equiv,
+                               size_t modulo,
+                               size_t prob,
+                               bool sieve_check_2p1) {
+   const size_t MAX_ATTEMPTS = 32 * 1024;
+
+   const size_t mr_trials = miller_rabin_test_iterations(bits, prob, true);
+
+   while(true) {
+      BigInt p(rng, bits);
+
+      // Force lowest and two top bits on
+      p.set_bit(bits - 1);
+      p.set_bit(bits - 2);
+      p.set_bit(0);
+
+      // Force p to be equal to equiv mod modulo
+      p += (modulo - (p % modulo)) + equiv;
+
+      Prime_Sieve sieve(p, bits, modulo, sieve_check_2p1);
+
+      for(size_t attempt = 0; attempt <= MAX_ATTEMPTS; ++attempt) {
+         p += modulo;
+
+         if(!sieve.next()) {
+            continue;
+         }
+
+         // here p can be even if modulo is odd, continue on in that case
+         if(p.is_even()) {
+            continue;
+         }
+
+         BOTAN_DEBUG_ASSERT(no_small_multiples(p, sieve));
+
+         auto mod_p = Barrett_Reduction::for_secret_modulus(p);
+         const Montgomery_Params monty_p(p, mod_p);
+
+         if(coprime > 1) {
+            /*
+            First do a single M-R iteration to quickly eliminate most non-primes,
+            before doing the coprimality check which is expensive
+            */
+            if(!is_miller_rabin_probable_prime(p, mod_p, monty_p, rng, 1)) {
+               continue;
+            }
+
+            /*
+            * Check if p - 1 and coprime are relatively prime, using gcd.
+            * The gcd computation is const-time
+            */
+            if(gcd(p - 1, coprime) > 1) {
+               continue;
+            }
+         }
+
+         if(p.bits() > bits) {
+            break;
+         }
+
+         if(!is_miller_rabin_probable_prime(p, mod_p, monty_p, rng, mr_trials)) {
+            continue;
+         }
+
+         if(prob > 32 && !is_lucas_probable_prime(p, mod_p)) {
+            continue;
+         }
+
+         return p;
+      }
+   }
+}
+
 }  // namespace
 
 /*
@@ -156,73 +232,10 @@ BigInt random_prime(
       }
    }
 
-   const size_t MAX_ATTEMPTS = 32 * 1024;
-
-   const size_t mr_trials = miller_rabin_test_iterations(bits, prob, true);
-
-   while(true) {
-      BigInt p(rng, bits);
-
-      // Force lowest and two top bits on
-      p.set_bit(bits - 1);
-      p.set_bit(bits - 2);
-      p.set_bit(0);
-
-      // Force p to be equal to equiv mod modulo
-      p += (modulo - (p % modulo)) + equiv;
-
-      Prime_Sieve sieve(p, bits, modulo, true);
-
-      for(size_t attempt = 0; attempt <= MAX_ATTEMPTS; ++attempt) {
-         p += modulo;
-
-         if(!sieve.next()) {
-            continue;
-         }
-
-         // here p can be even if modulo is odd, continue on in that case
-         if(p.is_even()) {
-            continue;
-         }
-
-         BOTAN_DEBUG_ASSERT(no_small_multiples(p, sieve));
-
-         auto mod_p = Barrett_Reduction::for_secret_modulus(p);
-         const Montgomery_Params monty_p(p, mod_p);
-
-         if(coprime > 1) {
-            /*
-            First do a single M-R iteration to quickly eliminate most non-primes,
-            before doing the coprimality check which is expensive
-            */
-            if(!is_miller_rabin_probable_prime(p, mod_p, monty_p, rng, 1)) {
-               continue;
-            }
-
-            /*
-            * Check if p - 1 and coprime are relatively prime, using gcd.
-            * The gcd computation is const-time
-            */
-            if(gcd(p - 1, coprime) > 1) {
-               continue;
-            }
-         }
-
-         if(p.bits() > bits) {
-            break;
-         }
-
-         if(!is_miller_rabin_probable_prime(p, mod_p, monty_p, rng, mr_trials)) {
-            continue;
-         }
-
-         if(prob > 32 && !is_lucas_probable_prime(p, mod_p)) {
-            continue;
-         }
-
-         return p;
-      }
-   }
+   // The check_2p1 sieve filter is only appropriate when generating q for a
+   // safe prime; for arbitrary equiv/modulo it can pre-reject every candidate
+   // (eg equiv=1, modulo=3 makes the residue mod 3 always equal (3-1)/2).
+   return random_prime_with_sieve(rng, bits, coprime, equiv, modulo, prob, false);
 }
 
 BigInt generate_rsa_prime(RandomNumberGenerator& keygen_rng,
@@ -325,7 +338,7 @@ BigInt random_safe_prime(RandomNumberGenerator& rng, size_t bits) {
       Generate q == 2 (mod 3), since otherwise [in the case of q == 1 (mod 3)],
       2*q+1 == 3 (mod 3) and so certainly not prime.
       */
-      q = random_prime(rng, bits - 1, BigInt::zero(), 2, 3, error_bound);
+      q = random_prime_with_sieve(rng, bits - 1, BigInt::zero(), 2, 3, error_bound, true);
       p = (q << 1) + 1;
 
       if(is_prime(p, rng, error_bound, true)) {

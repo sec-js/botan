@@ -554,6 +554,8 @@ class RSA_Private_Operation {
             m_max_d2_bits(m_private->q_bits() + m_blinding_bits) {}
 
       void raw_op(std::span<uint8_t> out, std::span<const uint8_t> input) {
+         // These early exits are fine because the invalidity is based only
+         // on public information, namely the ciphertext and the public modulus
          if(input.size() > public_modulus_bytes()) {
             throw Decoding_Error("RSA input is too long for this key");
          }
@@ -561,6 +563,7 @@ class RSA_Private_Operation {
          if(input_bn.is_zero() || input_bn >= m_public->get_n()) {
             throw Decoding_Error("RSA input is not in the valid range");
          }
+
          // TODO: This should be a function on blinder
          // BigInt Blinder::run_blinded_function(std::function<BigInt, BigInt> fn, const BigInt& input);
 
@@ -768,8 +771,11 @@ class RSA_Verify_Operation final : public PK_Ops::Verification,
 
    private:
       std::vector<uint8_t> recover_message_repr(const uint8_t input[], size_t input_len) {
-         if(input_len > public_modulus_bytes()) {
-            throw Decoding_Error("RSA signature too large to be valid for this key");
+         // RFC 8017 8.1.2 and 8.2.2 state
+         //    If the length of the signature S is not k octets,
+         //    output "invalid signature" and stop.
+         if(input_len != public_modulus_bytes()) {
+            throw Decoding_Error("RSA signature is an incorrect size for this public key");
          }
          const BigInt input_bn(input, input_len);
          return public_op(input_bn).serialize();
