@@ -469,6 +469,14 @@ Certificate_Status_Code verify_ocsp_signing_cert(const X509_Certificate& signing
    // Verify the delegated responder was issued by the CA that issued
    // the certificate in question (the EKU and signature chain are
    // verified by the path validation below).
+   //
+   // RFC 6960 4.2.2.2 again
+   //
+   //    Systems relying on OCSP responses MUST recognize a delegation
+   //    certificate as being issued by the CA that issued the
+   //    certificate in question only if the delegation certificate
+   //    and the certificate being checked for revocation were signed
+   //    by the same key.
    if(signing_cert.issuer_dn() != ca.subject_dn()) {
       return Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED;
    } else {
@@ -480,6 +488,15 @@ Certificate_Status_Code verify_ocsp_signing_cert(const X509_Certificate& signing
       if(!aki.empty() && !ski.empty() && aki != ski) {
          return Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED;
       }
+   }
+
+   try {
+      const auto ca_pub_key = ca.subject_public_key();
+      if(!ca_pub_key || !signing_cert.check_signature(*ca_pub_key)) {
+         return Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED;
+      }
+   } catch(...) {
+      return Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED;
    }
 
    // TODO: Implement OCSP revocation check of OCSP signer certificate

@@ -300,6 +300,19 @@ class BOTAN_PUBLIC_API(2, 0) BER_Decoder final {
                                             ASN1_Class real_class,
                                             const T& default_value = T());
 
+      /**
+      * Decode an already-extracted BER_Object as if its tag were
+      * `real_type`/`real_class`. Used to consume IMPLICIT-tagged values
+      * whose body matches a different universal type (e.g. a
+      * context-specific [8] body that should be parsed as an OID).
+      */
+      template <typename T>
+      BER_Decoder& decode_implicit(BER_Object obj, T& out, ASN1_Type real_type, ASN1_Class real_class) {
+         obj.set_tagging(real_type, real_class);
+         push_back(std::move(obj));
+         return decode(out, real_type, real_class);
+      }
+
       template <typename T>
       BER_Decoder& decode_list(std::vector<T>& out,
                                ASN1_Type type_tag = ASN1_Type::Sequence,

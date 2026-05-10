@@ -148,11 +148,10 @@ ASN1_String::ASN1_String(std::string_view str) : ASN1_String(str, choose_encodin
 * DER encode an ASN1_String
 */
 void ASN1_String::encode_into(DER_Encoder& encoder) const {
-   if(m_data.empty()) {
-      BOTAN_ASSERT_NOMSG(is_utf8_subset_string_type(tagging()));
+   if(is_utf8_subset_string_type(tagging())) {
       encoder.add_object(tagging(), ASN1_Class::Universal, m_utf8_str);
    } else {
-      // If this string was decoded, reserialize using original encoding
+      // BMP/Universal/Teletex: m_utf8_str is the UTF-8 conversion, m_data is the wire form
       encoder.add_object(tagging(), ASN1_Class::Universal, m_data.data(), m_data.size());
    }
 }

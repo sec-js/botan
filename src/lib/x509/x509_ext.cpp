@@ -964,7 +964,7 @@ void TNAuthList::Entry::decode_from(class BER_Decoder& ber) {
    if(type_tag == ServiceProviderCode) {
       m_type = ServiceProviderCode;
       ASN1_String spc_string;
-      BER_Decoder(obj, ber.limits()).decode(spc_string);
+      BER_Decoder(obj, ber.limits()).decode(spc_string).verify_end();
       m_data = std::move(spc_string);
    } else if(type_tag == TelephoneNumberRange) {
       m_type = TelephoneNumberRange;
@@ -988,6 +988,7 @@ void TNAuthList::Entry::decode_from(class BER_Decoder& ber) {
          range_items.emplace_back(std::move(entry));
       }
       list.end_cons();
+      outer.verify_end();
 
       if(range_items.empty()) {
          throw Decoding_Error("TelephoneNumberRange is empty");
@@ -995,7 +996,7 @@ void TNAuthList::Entry::decode_from(class BER_Decoder& ber) {
    } else if(type_tag == TelephoneNumber) {
       m_type = TelephoneNumber;
       ASN1_String one_string;
-      BER_Decoder(obj, ber.limits()).decode(one_string);
+      BER_Decoder(obj, ber.limits()).decode(one_string).verify_end();
       if(!is_valid_telephone_number(one_string)) {
          throw Decoding_Error(fmt("Invalid TelephoneNumber {}", one_string.value()));
       }

@@ -67,7 +67,6 @@ tests_that_succeed_unexpectedly = {
     'webpki::explicit-curve': 'Deprecated but not gone yet',
     'rfc5280::nc::invalid-dnsname-leading-period': 'Common extension',
 
-    'rfc5280::nc::nc-forbids-othername': 'Othername is a NULL which we drop',
     'webpki::san::wildcard-embedded-ulabel-san': 'Needs investigation',
 
     # These tests are despite the nameconstraints prefix actually

@@ -161,6 +161,7 @@ void GeneralName::decode_from(BER_Decoder& ber) {
       X509_DN dn;
       BER_Decoder dec(obj, ber.limits());
       dn.decode_from(dec);
+      dec.verify_end();
       m_type = NameType::DN;
       m_name.emplace<DN_IDX>(dn);
    } else if(obj.is_a(7, ASN1_Class::ContextSpecific)) {
@@ -324,8 +325,6 @@ bool GeneralName::matches_dns(std::string_view name, std::string_view constraint
 
       if(constraint.front() == '.') {
          return substr == constraint;
-      } else if(substr[0] == '.') {
-         return substr.substr(1) == constraint;
       } else {
          return substr == constraint && name[name.size() - constraint.size() - 1] == '.';
       }
@@ -350,7 +349,7 @@ bool GeneralName::matches_dn(const X509_DN& name, const X509_DN& constraint) {
       }
    }
 
-   return !constraint_info.empty();
+   return true;
 }
 
 std::ostream& operator<<(std::ostream& os, const GeneralName& gn) {
@@ -436,7 +435,26 @@ bool NameConstraints::is_permitted(const X509_Certificate& cert, bool reject_unk
    }
 
    if(reject_unknown) {
-      if(m_permitted_name_types.contains(GeneralName::NameType::Other) && !alt_name.other_names().empty()) {
+      /* A critical NC restricting an unrecognized GeneralName form (e.g. x400Address)
+      * causes immediate rejection.
+      *
+      * RFC 5280 4.2.1.10 leaves this both unspecified
+      *   The syntax and semantics for name constraints for otherName, ediPartyName, and
+      *   registeredID are not defined by this specification
+      * and discouraged
+      *    Conforming CAs [...] SHOULD NOT impose name constraints on the x400Address,
+      *    ediPartyName, or registeredID name forms.
+      *
+      * In principle we should only reject when the constrained form appears in the
+      * certificate. But this situation in general seems to be a minefield, with no help
+      * from specs, test suites, etc. Lacking any obvious use case, just fail closed.
+      *
+      * If you happen to hit this with a real chain, open an issue.
+      */
+      if(m_permitted_name_types.contains(GeneralName::NameType::Unknown)) {
+         return false;
+      }
+      if(m_permitted_name_types.contains(GeneralName::NameType::Other) && !alt_name.other_name_values().empty()) {
          return false;
       }
       if(m_permitted_name_types.contains(GeneralName::NameType::URI) && !alt_name.uris().empty()) {
@@ -602,13 +620,18 @@ bool NameConstraints::is_excluded(const X509_Certificate& cert, bool reject_unkn
    if(reject_unknown) {
       // This is one is overly broad: we should just reject if there is a name constraint
       // with the same OID as one of the other names
-      if(m_excluded_name_types.contains(GeneralName::NameType::Other) && !alt_name.other_names().empty()) {
+      if(m_excluded_name_types.contains(GeneralName::NameType::Other) && !alt_name.other_name_values().empty()) {
          return true;
       }
       if(m_excluded_name_types.contains(GeneralName::NameType::URI) && !alt_name.uris().empty()) {
          return true;
       }
       if(m_excluded_name_types.contains(GeneralName::NameType::RFC822) && !alt_name.email().empty()) {
+         return true;
+      }
+      // As in is_permitted: a critical NC restricting an unrecognized
+      // GeneralName form cannot be evaluated; reject conservatively.
+      if(m_excluded_name_types.contains(GeneralName::NameType::Unknown)) {
          return true;
       }
    }

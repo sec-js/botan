@@ -66,6 +66,14 @@ class X509_Alt_Name_Tests final : public Test {
          alt_name.add_other_name(Botan::OID{1, 3, 6, 1, 4, 1, 25258, 10000, 1}, Botan::ASN1_String("foof"));
          alt_name.add_other_name(Botan::OID{1, 3, 6, 1, 4, 1, 25258, 10000, 2}, Botan::ASN1_String("yow"));
 
+         // Raw OtherName whose inner value is a SEQUENCE (i.e. not an ASN1_String).
+         const Botan::OID raw_other_oid{1, 3, 6, 1, 4, 1, 25258, 10000, 3};
+         const std::vector<uint8_t> raw_other_value = {0x30, 0x03, 0x02, 0x01, 0x2A};
+         alt_name.add_other_name_value(raw_other_oid, raw_other_value);
+
+         alt_name.add_registered_id(Botan::OID{1, 3, 6, 1, 4, 1, 25258, 10001, 1});
+         alt_name.add_registered_id(Botan::OID{1, 3, 6, 1, 4, 1, 25258, 10001, 2});
+
          Botan::X509_DN bonus_dn1;
          bonus_dn1.add_attribute("X520.CommonName", "cn1");
          alt_name.add_dn(bonus_dn1);
@@ -109,6 +117,22 @@ class X509_Alt_Name_Tests final : public Test {
 
          result.test_sz_eq("Expected number of DNs", recoded.directory_names().size(), 2);
          result.test_sz_eq("Expected number of Othernames", recoded.other_names().size(), 2);
+         result.test_sz_eq("Expected number of OtherName values", recoded.other_name_values().size(), 3);
+         result.test_sz_eq("Expected number of registeredIDs", recoded.registered_ids().size(), 2);
+
+         // The raw-bytes OtherName roundtripped verbatim.
+         const auto& on_set = recoded.other_name_values();
+         auto raw_match = on_set.end();
+         for(auto it = on_set.begin(); it != on_set.end(); ++it) {
+            if(it->oid() == raw_other_oid) {
+               raw_match = it;
+               break;
+            }
+         }
+         result.test_is_true("raw OtherName preserved", raw_match != on_set.end());
+         if(raw_match != on_set.end()) {
+            result.test_bin_eq("raw OtherName value bytes match", raw_match->value(), raw_other_value);
+         }
 
          return {result};
       }

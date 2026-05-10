@@ -75,7 +75,7 @@ void PSS_Params::decode_from(BER_Decoder& from) {
       .decode_optional(m_trailer_field, ASN1_Type(3), ASN1_Class::ExplicitContextSpecific, default_trailer)
       .end_cons();
 
-   BER_Decoder(m_mgf.parameters(), from.limits()).decode(m_mgf_hash);
+   BER_Decoder(m_mgf.parameters(), from.limits()).decode(m_mgf_hash).verify_end();
 }
 
 }  // namespace Botan

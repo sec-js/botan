@@ -50,10 +50,35 @@ class OCSP_Tests final : public Test {
             }
          }
 
-         const Botan::OCSP::Response resp(
-            Test::read_binary_data_file("x509/ocsp/patrickschmidt_ocsp_try_later_wrong_sig.der"));
-         result.test_enum_eq(
-            "parsing exposes correct status code", resp.status(), Botan::OCSP::Response_Status_Code::Try_Later);
+         try {
+            // Contrary to RFC 6960 this response includes a responseBytes with a non-successful status code
+            const Botan::OCSP::Response resp(
+               Test::read_binary_data_file("x509/ocsp/patrickschmidt_ocsp_try_later_wrong_sig.der"));
+            result.test_failure("Accepted invalid encoding OCSP response");
+            result.test_enum_eq(
+               "parsing exposes correct status code", resp.status(), Botan::OCSP::Response_Status_Code::Try_Later);
+         } catch(Botan::Exception&) {
+            result.test_success("Rejected invalid encoding OCSP response");
+         }
+
+         // OCSPResponse SEQUENCE { ENUMERATED 0 }: successful status with no
+         // responseBytes. RFC 6960 4.2.1 requires responseBytes when successful.
+         const std::vector<uint8_t> successful_no_response_bytes = {0x30, 0x03, 0x0A, 0x01, 0x00};
+         result.test_throws<Botan::Decoding_Error>("Successful status without responseBytes is rejected", [&] {
+            const Botan::OCSP::Response resp(successful_no_response_bytes);
+         });
+
+         // OCSPResponse SEQUENCE { ENUMERATED 4 }: unknown response code
+         const std::vector<uint8_t> failed_unknown_code = {0x30, 0x03, 0x0A, 0x01, 0x04};
+         result.test_throws<Botan::Decoding_Error>("OCSPResponse with unknown response code is rejected",
+                                                   [&] { const Botan::OCSP::Response resp(failed_unknown_code); });
+
+         // SEQUENCE { ENUMERATED 3 }: bare tryLater with no trailer parses fine.
+         const std::vector<uint8_t> try_later_no_trailer = {0x30, 0x03, 0x0A, 0x01, 0x03};
+         result.test_no_throw("Bare non-successful status parses", [&] {
+            const Botan::OCSP::Response r(try_later_no_trailer);
+            result.test_enum_eq("parsed as Try_Later", r.status(), Botan::OCSP::Response_Status_Code::Try_Later);
+         });
 
          return result;
       }

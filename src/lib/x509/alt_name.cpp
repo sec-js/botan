@@ -34,6 +34,17 @@ void AlternativeName::add_dns(std::string_view dns) {
 
 void AlternativeName::add_other_name(const OID& oid, const ASN1_String& value) {
    m_othernames.insert(std::make_pair(oid, value));
+   std::vector<uint8_t> raw;
+   DER_Encoder(raw).encode(value);
+   m_other_name_values.insert(OtherNameValue(oid, std::move(raw)));
+}
+
+void AlternativeName::add_other_name_value(const OID& oid, std::span<const uint8_t> value) {
+   m_other_name_values.insert(OtherNameValue(oid, value));
+}
+
+void AlternativeName::add_registered_id(const OID& oid) {
+   m_registered_ids.insert(oid);
 }
 
 void AlternativeName::add_dn(const X509_DN& dn) {
@@ -55,7 +66,8 @@ size_t AlternativeName::count() const {
                                 m_ipv4_addr.size(),
                                 m_ipv6_addr.size(),
                                 m_dn_names.size(),
-                                m_othernames.size());
+                                m_other_name_values.size(),
+                                m_registered_ids.size());
 
    BOTAN_ASSERT_NOMSG(sum.has_value());
    return sum.value();
@@ -81,11 +93,11 @@ void AlternativeName::encode_into(DER_Encoder& der) const {
         registeredID                    [8]     OBJECT IDENTIFIER }
    */
 
-   for(const auto& othername : m_othernames) {
+   for(const auto& othername : m_other_name_values) {
       der.start_explicit(0)
-         .encode(othername.first)
+         .encode(othername.oid())
          .start_explicit(0)
-         .encode(othername.second)
+         .raw_bytes(othername.value())
          .end_explicit()
          .end_explicit();
    }
@@ -120,6 +132,12 @@ void AlternativeName::encode_into(DER_Encoder& der) const {
       der.add_object(ASN1_Type(7), ASN1_Class::ContextSpecific, ip.address().data(), ip.address().size());
    }
 
+   for(const auto& reg_id : m_registered_ids) {
+      // [8] registeredID is IMPLICIT OBJECT IDENTIFIER.
+      // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
+      der.encode_implicit(reg_id, ASN1_Type(8), ASN1_Class::ContextSpecific);
+   }
+
    der.end_cons();
 }
 
@@ -147,8 +165,18 @@ void AlternativeName::decode_from(BER_Decoder& source) {
             const BER_Object value = othername_value_inner.get_next_object();
             othername_value_inner.verify_end();
 
+            // Capture the inner ANY value verbatim so applications can retrieve
+            // it regardless of its ASN.1 form.
+            std::vector<uint8_t> raw_value;
+            DER_Encoder(raw_value).add_object(value.type_tag(), value.class_tag(), value.data());
+            m_other_name_values.insert(OtherNameValue{oid, std::move(raw_value)});
+
+            // Populate old string view for compatibility
             if(ASN1_String::is_string_type(value.type()) && value.get_class() == ASN1_Class::Universal) {
-               add_othername(oid, ASN1::to_string(value), value.type());
+               try {
+                  m_othernames.insert(std::make_pair(oid, ASN1_String(ASN1::to_string(value), value.type())));
+               } catch(const Invalid_Argument&) {  // NOLINT(*-empty-catch)
+               }
             }
          }
       } else if(obj.is_a(1, ASN1_Class::ContextSpecific)) {
@@ -158,7 +186,7 @@ void AlternativeName::decode_from(BER_Decoder& source) {
       } else if(obj.is_a(4, ASN1_Class::ContextSpecific | ASN1_Class::Constructed)) {
          BER_Decoder dec(obj, names.limits());
          X509_DN dn;
-         dec.decode(dn);
+         dec.decode(dn).verify_end();
          this->add_dn(dn);
       } else if(obj.is_a(6, ASN1_Class::ContextSpecific)) {
          this->add_uri(ASN1::to_string(obj));
@@ -172,6 +200,11 @@ void AlternativeName::decode_from(BER_Decoder& source) {
          } else {
             throw Decoding_Error("Invalid IP constraint neither IPv4 or IPv6");
          }
+      } else if(obj.is_a(8, ASN1_Class::ContextSpecific)) {
+         // [8] registeredID is IMPLICIT OBJECT IDENTIFIER.
+         OID oid;
+         names.decode_implicit(obj, oid, ASN1_Type::ObjectId, ASN1_Class::Universal);
+         this->add_registered_id(oid);
       }
    }
 }

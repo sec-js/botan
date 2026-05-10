@@ -722,8 +722,12 @@ bool X509_Certificate::matches_dns_name(std::string_view name) const {
 
    auto issued_names = subject_info("DNS");
 
-   // Fall back to CN only if no SAN is included
-   if(!data().m_subject_alt_name_exists) {
+   /*
+   Fall back to CN for DNS name only if no SAN is included
+   We assume if the issuer knew about SAN then they would have included
+   the DNS name there if the intention was to provide such a name.
+   */
+   if(issued_names.empty() && !data().m_subject_alt_name_exists) {
       issued_names = subject_info("Name");
    }
 

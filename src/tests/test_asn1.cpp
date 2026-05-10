@@ -14,6 +14,7 @@
    #include <botan/bigint.h>
    #include <botan/data_src.h>
    #include <botan/der_enc.h>
+   #include <botan/pss_params.h>
    #include <botan/internal/fmt.h>
 #endif
 
@@ -446,6 +447,74 @@ Test::Result test_ber_find_eoc() {
    return result;
 }
 
+Test::Result test_asn1_string_zero_length_roundtrip() {
+   Test::Result result("ASN.1 String zero-length round-trip");
+
+   auto roundtrip = [&](const char* what, const std::vector<uint8_t>& wire) {
+      try {
+         Botan::DataSource_Memory input(wire.data(), wire.size());
+         Botan::BER_Decoder dec(input);
+         Botan::ASN1_String str;
+         str.decode_from(dec);
+
+         Botan::DER_Encoder enc;
+         str.encode_into(enc);
+         const auto out = enc.get_contents();
+         result.test_bin_eq(what, std::span{out}, std::span{wire});
+      } catch(const std::exception& ex) {
+         result.test_failure(Botan::fmt("{}: unexpected throw: {}", what, ex.what()));
+      }
+   };
+
+   roundtrip("BmpString 1E 00", {0x1E, 0x00});
+   roundtrip("UniversalString 1C 00", {0x1C, 0x00});
+   roundtrip("TeletexString 14 00", {0x14, 0x00});
+
+   return result;
+}
+
+Test::Result test_pss_params_rejects_trailing_data_in_mgf1_params() {
+   Test::Result result("PSS-Params rejects trailing data in MGF1 parameters");
+
+   const Botan::AlgorithmIdentifier sha256_alg_id("SHA-256", Botan::AlgorithmIdentifier::USE_NULL_PARAM);
+   const auto sha256_der = sha256_alg_id.BER_encode();
+
+   auto encode_pss_params = [&](const std::vector<uint8_t>& mgf_params) {
+      const Botan::AlgorithmIdentifier mgf("MGF1", mgf_params);
+      Botan::DER_Encoder enc;
+      enc.start_sequence()
+         .start_context_specific(0)
+         .encode(sha256_alg_id)
+         .end_cons()
+         .start_context_specific(1)
+         .encode(mgf)
+         .end_cons()
+         .start_context_specific(2)
+         .encode(static_cast<size_t>(32))
+         .end_cons()
+         .end_cons();
+      return enc.get_contents();
+   };
+
+   try {
+      const auto clean_der = encode_pss_params(sha256_der);
+      const Botan::PSS_Params clean(clean_der);
+      result.test_success("control: clean PSS-Params decodes");
+   } catch(const std::exception& e) {
+      result.test_failure(Botan::fmt("clean PSS-Params unexpected throw: {}", e.what()));
+   }
+
+   std::vector<uint8_t> mgf_params_with_junk = sha256_der;
+   const std::vector<uint8_t> trailing_junk{0x02, 0x01, 0x00};
+   mgf_params_with_junk.insert(mgf_params_with_junk.end(), trailing_junk.begin(), trailing_junk.end());
+   const auto bad_der = encode_pss_params(mgf_params_with_junk);
+
+   result.test_throws<Botan::Decoding_Error>("PSS-Params rejects trailing data in MGF1 parameters",
+                                             [&]() { const Botan::PSS_Params bad(bad_der); });
+
+   return result;
+}
+
 class ASN1_Tests final : public Test {
    public:
       std::vector<Test::Result> run() override {
@@ -465,6 +534,8 @@ class ASN1_Tests final : public Test {
          results.push_back(test_asn1_tag_underlying_type());
          results.push_back(test_asn1_negative_int_encoding());
          results.push_back(test_der_constructed_tag_17_not_sorted());
+         results.push_back(test_asn1_string_zero_length_roundtrip());
+         results.push_back(test_pss_params_rejects_trailing_data_in_mgf1_params());
 
          return results;
       }

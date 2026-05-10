@@ -167,6 +167,7 @@ void decode_optional_list(BER_Decoder& ber, ASN1_Type tag, std::vector<X509_Cert
       }());
    }
    seq.end_cons();
+   list.verify_end();
 }
 
 }  // namespace
@@ -256,17 +257,27 @@ Response::Response(const uint8_t response_bits[], size_t response_bits_len) :
        unauthorized          (6)   -- Request unauthorized
    }
    */
-   if(resp_status >= 7) {
+   if(resp_status == 4 || resp_status >= 7) {
       throw Decoding_Error("Unknown OCSPResponseStatus code");
    }
 
    m_status = static_cast<Response_Status_Code>(resp_status);
 
-   if(m_status != Response_Status_Code::Successful) {
-      return;
+   /*
+   * RFC 6960 4.2.1: "If the value of responseStatus is one of the error
+   * conditions, the responseBytes field is not set."
+   */
+   const bool successful = (m_status == Response_Status_Code::Successful);
+   const bool has_response_bytes = response_outer.more_items();
+
+   if(successful && !has_response_bytes) {
+      throw Decoding_Error("OCSP response with successful status is missing responseBytes");
+   }
+   if(!successful && has_response_bytes) {
+      throw Decoding_Error("OCSP response with non-successful status includes responseBytes");
    }
 
-   if(response_outer.more_items()) {
+   if(successful) {
       BER_Decoder response_bytes_ctx = response_outer.start_context_specific(0);
       BER_Decoder response_bytes = response_bytes_ctx.start_sequence();
 
