@@ -75,6 +75,7 @@ enum class Certificate_Status_Code : uint16_t {
    NAME_CONSTRAINT_ERROR = 4004,
    IPADDR_BLOCKS_ERROR = 4011,
    AS_BLOCKS_ERROR = 4012,
+   NO_REV_AVAIL_INVALID_USE = 4013,
 
    // Revocation errors
    CA_CERT_NOT_FOR_CRL_ISSUER = 4005,

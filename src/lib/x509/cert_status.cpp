@@ -95,6 +95,8 @@ const char* to_string(Certificate_Status_Code code) {
          return "IP Address Blocks extension invalid";
       case Certificate_Status_Code::AS_BLOCKS_ERROR:
          return "AS Number Blocks extension invalid";
+      case Certificate_Status_Code::NO_REV_AVAIL_INVALID_USE:
+         return "noRevAvail extension used in an invalid manner";
       case Certificate_Status_Code::UNKNOWN_CRITICAL_EXTENSION:
          return "Unknown critical extension encountered";
       case Certificate_Status_Code::DUPLICATE_CERT_EXTENSION:
