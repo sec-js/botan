@@ -9,6 +9,7 @@
 
 #include <botan/assert.h>
 #include <botan/exceptn.h>
+#include <botan/ipv6_address.h>
 #include <botan/internal/fmt.h>
 #include <botan/internal/parsing.h>
 #include <botan/internal/target_info.h>
@@ -41,7 +42,7 @@ bool is_ipv4(std::string_view ip) {
 }
 
 bool is_ipv6(std::string_view ip) {
-   return string_to_ipv6(ip).has_value();
+   return IPv6Address::from_string(ip).has_value();
 }
 
 uint16_t parse_port_number(const char* func_name, std::string_view uri, size_t pos) {

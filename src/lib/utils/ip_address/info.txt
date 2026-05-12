@@ -1,3 +1,8 @@
+<defines>
+IPV4_ADDRESS -> 20260512
+IPV6_ADDRESS -> 20260512
+</defines>
+
 <module_info>
 name -> "IP address types"
 </module_info>

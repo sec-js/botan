@@ -30,6 +30,10 @@
    #include <botan/internal/cpuid.h>
 #endif
 
+#if defined(BOTAN_HAS_IPV6_ADDRESS)
+   #include <botan/ipv6_address.h>
+#endif
+
 #if defined(BOTAN_HAS_POLY_DBL)
    #include <botan/internal/poly_dbl.h>
 #endif
@@ -1198,6 +1202,8 @@ class IPv4_Parsing_Tests final : public Text_Based_Test {
 
 BOTAN_REGISTER_TEST("utils", "ipv4_parse", IPv4_Parsing_Tests);
 
+#if defined(BOTAN_HAS_IPV6_ADDRESS)
+
 class IPv6_Parsing_Tests final : public Text_Based_Test {
    public:
       IPv6_Parsing_Tests() : Text_Based_Test("utils/ipv6.vec", "IPv6") {}
@@ -1208,13 +1214,13 @@ class IPv6_Parsing_Tests final : public Text_Based_Test {
          const std::string input = vars.get_req_str("IPv6");
          const bool valid = (header == "Valid");
 
-         auto ipv6 = Botan::string_to_ipv6(input);
+         auto ipv6 = Botan::IPv6Address::from_string(input);
 
-         result.test_bool_eq("string_to_ipv6 accepts only valid", ipv6.has_value(), valid);
+         result.test_bool_eq("IPv6Address::from_string accepts only valid", ipv6.has_value(), valid);
 
          if(ipv6) {
-            const std::string rt = Botan::ipv6_to_string(ipv6.value());
-            result.test_str_eq("ipv6_to_string and string_to_ipv6 round trip", input, rt);
+            const std::string rt = ipv6->to_string();
+            result.test_str_eq("IPv6Address to_string and from_string round trip", input, rt);
          }
 
          return result;
@@ -1233,14 +1239,14 @@ class IPv6_Noncanonical_Parsing_Tests final : public Text_Based_Test {
          const std::string input_str = vars.get_req_str("Input");
          const std::string canonical_str = vars.get_req_str("Canonical");
 
-         const auto ipv6 = Botan::string_to_ipv6(input_str);
-         const auto canonical = Botan::string_to_ipv6(canonical_str);
+         const auto ipv6 = Botan::IPv6Address::from_string(input_str);
+         const auto canonical = Botan::IPv6Address::from_string(canonical_str);
 
          result.test_is_true("IPv6 non-canonical parsing worked", ipv6.has_value());
          result.test_is_true("IPv6 canonical parsing worked", canonical.has_value());
 
          if(ipv6.has_value() && canonical.has_value()) {
-            result.test_bin_eq("IPv6 non-canonical decoding", ipv6.value(), canonical.value());
+            result.test_is_true("IPv6 non-canonical decoding", *ipv6 == *canonical);
          }
 
          return result;
@@ -1248,6 +1254,8 @@ class IPv6_Noncanonical_Parsing_Tests final : public Text_Based_Test {
 };
 
 BOTAN_REGISTER_TEST("utils", "ipv6_parse_non_canonical", IPv6_Noncanonical_Parsing_Tests);
+
+#endif
 
 class ReadKV_Tests final : public Text_Based_Test {
    public:
