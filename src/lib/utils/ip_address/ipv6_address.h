@@ -28,6 +28,15 @@ class BOTAN_PUBLIC_API(3, 12) IPv6Address final {
 
       explicit IPv6Address(std::array<uint8_t, 16> ip) : m_ip(ip) {}
 
+      /**
+      * Convert a string representation of an IPv6 address to IPv6Address.
+      *
+      * Accepts the full form (eight colon-separated hex groups), the
+      * "::"-compressed form (exactly one run of zero groups elided), and
+      * combinations such as "2001:db8::1". Does not currently accept the
+      * IPv4-in-IPv6 trailing dotted-quad form (e.g. "::ffff:192.0.2.1") or
+      * surrounding brackets.
+      */
       static std::optional<IPv6Address> from_string(std::string_view str);
 
       /**
@@ -42,8 +51,12 @@ class BOTAN_PUBLIC_API(3, 12) IPv6Address final {
 
       auto operator<=>(const IPv6Address&) const = default;
 
-      std::span<const uint8_t, 16> address() const { return m_ip; }
+      std::array<uint8_t, 16> address() const { return m_ip; }
 
+      /**
+      * Convert an IPv6 address to string format. Zero compression ("::") is
+      * not currently applied.
+      */
       std::string to_string() const;
 
       /**
