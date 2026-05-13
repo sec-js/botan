@@ -65,6 +65,8 @@ std::unique_ptr<Certificate_Extension> extension_from_oid(const OID& oid) {
             return make_extension<Cert_Extension::Authority_Key_ID>(oid);
          case 37:
             return make_extension<Cert_Extension::Extended_Key_Usage>(oid);
+         case 56:
+            return make_extension<Cert_Extension::NoRevocationAvailable>(oid);
       }
    }
 
@@ -1870,6 +1872,66 @@ std::vector<uint8_t> OCSP_NoCheck::encode_inner() const {
 void OCSP_NoCheck::decode_inner(const std::vector<uint8_t>& buf) {
    /* RFC 6960 Section 4.2.2.2.1 - id-pkix-ocsp-nocheck (value SHALL be NULL) */
    BER_Decoder(buf, BER_Decoder::Limits::DER()).decode_null().verify_end();
+}
+
+std::vector<uint8_t> NoRevocationAvailable::encode_inner() const {
+   return {0x05, 0x00};  // NULL
+}
+
+void NoRevocationAvailable::decode_inner(const std::vector<uint8_t>& buf) {
+   // RFC 9608 Section 2, it's just a NULL
+   BER_Decoder(buf, BER_Decoder::Limits::DER()).decode_null().verify_end();
+}
+
+void NoRevocationAvailable::validate(const X509_Certificate& subject,
+                                     const std::optional<X509_Certificate>& /*issuer*/,
+                                     const std::vector<X509_Certificate>& /*cert_path*/,
+                                     std::vector<std::set<Certificate_Status_Code>>& cert_status,
+                                     size_t pos) {
+   // RFC 9608 Section 2:
+   //    This extension MUST NOT be present in CA public key certificates.
+   //
+   // RFC 9608 Section 3:
+   //    Certificates that include the noRevAvail extension MUST NOT include
+   //    certificate extensions that point to CRL repositories or provide
+   //    locations of OCSP responders.
+   //
+   // Additionally (and unusually) the requirements of RFC 9608 Section 3
+   // are not just on issuing parties but also on verifiers:
+   //
+   //   If any of the above are violated in a certificate, then the relying
+   //   party MUST consider the certificate invalid.
+
+   const Extensions& exts = subject.v3_extensions();
+
+   if(const auto* bc = exts.get_extension_object_as<Basic_Constraints>(); bc != nullptr && bc->is_ca()) {
+      // RFC 9608 Section 3:
+      //    The certificate MUST NOT also include the basic constraints
+      //    certificate extension with the cA BOOLEAN set to TRUE
+      cert_status.at(pos).insert(Certificate_Status_Code::NO_REV_AVAIL_INVALID_USE);
+   }
+
+   // RFC 9608 Section 3:
+   //    The certificate MUST NOT also include the CRL Distribution Points
+   //    certificate extension
+   if(exts.extension_set(CRL_Distribution_Points::static_oid())) {
+      cert_status.at(pos).insert(Certificate_Status_Code::NO_REV_AVAIL_INVALID_USE);
+   }
+
+   // RFC 9608 Section 3:
+   //    The certificate MUST NOT also include the Freshest CRL certificate
+   //    extension
+   if(exts.extension_set(OID({2, 5, 29, 46}))) {
+      cert_status.at(pos).insert(Certificate_Status_Code::NO_REV_AVAIL_INVALID_USE);
+   }
+
+   // RFC 9608 Section 3:
+   //    The Authority Information Access certificate extension, if
+   //    present, MUST NOT include an id-ad-ocsp accessMethod
+   if(const auto* aia = exts.get_extension_object_as<Authority_Information_Access>();
+      aia != nullptr && !aia->ocsp_responders().empty()) {
+      cert_status.at(pos).insert(Certificate_Status_Code::NO_REV_AVAIL_INVALID_USE);
+   }
 }
 
 std::vector<uint8_t> Unknown_Extension::encode_inner() const {

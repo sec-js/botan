@@ -531,6 +531,46 @@ class OCSP_NoCheck final : public Certificate_Extension {
 };
 
 /**
+* No Revocation Available Extension
+*
+* RFC 9608 Section 2
+*
+*    The noRevAvail extension, defined in [X.509-2019-TC2], allows a CA to
+*    indicate that no revocation information will be made available for
+*    this certificate.
+*
+*    This extension MUST NOT be present in CA public key certificates.
+*
+*    Conforming CAs MUST include this extension in certificates for which
+*    no revocation information will be published.  When present,
+*    conforming CAs MUST mark this extension as non-critical.
+*/
+class BOTAN_PUBLIC_API(3, 13) NoRevocationAvailable final : public Certificate_Extension {
+   public:
+      NoRevocationAvailable() = default;
+
+      std::unique_ptr<Certificate_Extension> copy() const override { return std::make_unique<NoRevocationAvailable>(); }
+
+      static OID static_oid() { return OID({2, 5, 29, 56}); }
+
+      OID oid_of() const override { return static_oid(); }
+
+      void validate(const X509_Certificate& subject,
+                    const std::optional<X509_Certificate>& issuer,
+                    const std::vector<X509_Certificate>& cert_path,
+                    std::vector<std::set<Certificate_Status_Code>>& cert_status,
+                    size_t pos) override;
+
+   private:
+      std::string oid_name() const override { return "X509v3.NoRevocationAvailable"; }
+
+      bool should_encode() const override { return true; }
+
+      std::vector<uint8_t> encode_inner() const override;
+      void decode_inner(const std::vector<uint8_t>& in) override;
+};
+
+/**
 * TNAuthList extension
 *
 * RFC8226 Secure Telephone Identity Credentials

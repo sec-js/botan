@@ -522,6 +522,60 @@ std::vector<Test::Result> Validate_V2Uid_in_V1_Test::run() {
 
 BOTAN_REGISTER_TEST("x509", "x509_v2uid_in_v1", Validate_V2Uid_in_V1_Test);
 
+class Validate_NoRevAvail_Test final : public Test {
+   public:
+      std::vector<Test::Result> run() override;
+};
+
+std::vector<Test::Result> Validate_NoRevAvail_Test::run() {
+   if(Botan::has_filesystem_impl() == false) {
+      return {Test::Result::Note("Path validation", "Skipping due to missing filesystem access")};
+   }
+
+   const std::string root_crt = Test::data_file("x509/short_lived/root.pem");
+   const std::string int_crt = Test::data_file("x509/short_lived/int.pem");
+   const std::string ee_crt = Test::data_file("x509/short_lived/leaf.pem");
+
+   // Leaf is valid Mar 23 12:02:41 - Mar 24 12:02:40 2026 UTC
+   auto validation_time = Botan::calendar_point(2026, 3, 23, 13, 0, 0).to_std_timepoint();
+
+   const Botan::X509_Certificate root(root_crt);
+   const Botan::X509_Certificate intermediate(int_crt);
+   const Botan::X509_Certificate ee_cert(ee_crt);
+
+   Botan::Certificate_Store_In_Memory trusted;
+   trusted.add_certificate(root);
+
+   const std::vector<Botan::X509_Certificate> chain = {ee_cert, intermediate};
+
+   Test::Result result("RFC 9608 noRevAvail extension");
+
+   const auto* nra = ee_cert.v3_extensions().get_extension_object_as<Botan::Cert_Extension::NoRevocationAvailable>();
+   result.test_not_null("leaf cert has noRevAvail extension", nra);
+   result.test_is_true(
+      "noRevAvail is not critical",
+      !ee_cert.v3_extensions().critical_extension_set(Botan::Cert_Extension::NoRevocationAvailable::static_oid()));
+
+   const Botan::Path_Validation_Restrictions default_restrictions;
+   const Botan::Path_Validation_Result default_result = Botan::x509_path_validate(
+      chain, default_restrictions, trusted, "", Botan::Usage_Type::UNSPECIFIED, validation_time);
+
+   result.test_is_true("Default path validation succeeds", default_result.successful_validation());
+
+   // require_revocation_information=true: still passes because noRevAvail says to skip the check
+   const Botan::Path_Validation_Restrictions require_rev_restrictions(true);
+   const Botan::Path_Validation_Result require_rev_result = Botan::x509_path_validate(
+      chain, require_rev_restrictions, trusted, "", Botan::Usage_Type::UNSPECIFIED, validation_time);
+
+   result.test_is_true("Path validation skips revocation when noRevAvail present",
+                       require_rev_result.successful_validation());
+   result.test_str_eq("Path validation result", require_rev_result.result_string(), "Verified");
+
+   return {result};
+}
+
+BOTAN_REGISTER_TEST("x509", "x509_no_rev_avail", Validate_NoRevAvail_Test);
+
 class Validate_Name_Constraint_SAN_Test final : public Test {
    public:
       std::vector<Test::Result> run() override;
